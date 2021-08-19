@@ -1,0 +1,50 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
+val exposedVersion = "0.33.1"
+val koinVersion = "3.1.2"
+
+plugins {
+    kotlin("jvm") version "1.5.21"
+    id("org.jmailen.kotlinter") version "3.4.5"
+}
+
+group = "me.mes"
+version = "1.0-SNAPSHOT"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation(kotlin("test"))
+
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
+
+    implementation("org.jetbrains.exposed:exposed-core:$exposedVersion")
+    implementation("org.jetbrains.exposed:exposed-java-time:$exposedVersion")
+    implementation("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")
+
+    implementation("org.xerial:sqlite-jdbc:3.30.1")
+
+    implementation("org.slf4j:slf4j-nop:1.7.30")
+
+    implementation("io.insert-koin:koin-core:$koinVersion")
+
+    implementation("com.zaxxer:HikariCP:5.0.0")
+}
+
+kotlinter {
+    indentSize = 2
+}
+
+tasks.check {
+    dependsOn("installKotlinterPrePushHook")
+}
+
+tasks.test {
+    useJUnitPlatform()
+}
+
+tasks.withType<KotlinCompile> {
+    kotlinOptions.jvmTarget = "1.8"
+}
