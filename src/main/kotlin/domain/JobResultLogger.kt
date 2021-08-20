@@ -8,13 +8,13 @@ import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 
 class JobResultLogger(
-  private val scope: CoroutineScope,
+  scope: CoroutineScope,
   private val db: Database,
   private val results: SharedFlow<JobResult>,
   private val repository: ResultRepository,
   private val log: LogMessages,
 ) {
-  fun start() {
+  init {
     scope.launch {
       results.collect { result ->
         try {

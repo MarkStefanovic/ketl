@@ -13,14 +13,14 @@ import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
 class ExposedLogRepositoryCleaner(
-  private val scope: CoroutineScope,
+  scope: CoroutineScope,
   private val db: Database,
   private val log: LogMessages,
   private val repository: LogRepository,
   private val timeBetweenCleanup: Duration = Duration.minutes(30),
   private val durationToKeep: Duration = Duration.days(3),
 ) {
-  fun start() {
+  init {
     scope.launch {
       while (true) {
         log.info("Cleaning up the log...")

@@ -13,19 +13,16 @@ import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
 class JobRunner(
-  private val scope: CoroutineScope,
+  scope: CoroutineScope,
   private val log: LogMessages,
   private val queue: SharedFlow<Job<*>>,
   private val status: JobStatuses,
   private val results: JobResults,
   val maxSimultaneousJobs: Int,
 ) {
-  //  private val _jobStatus = MutableSharedFlow<Pair<String, JobStatus>>()
-  //  val jobStatus = _jobStatus.asSharedFlow()
-
   private val _runningJobs = ConcurrentLinkedQueue<String>()
 
-  fun start() {
+  init {
     val coroutineContext = newFixedThreadPoolContext(maxSimultaneousJobs, "capped_jobs")
 
     scope.launch {

@@ -12,13 +12,13 @@ import kotlin.time.ExperimentalTime
 @ExperimentalTime
 @InternalCoroutinesApi
 class JobStatusLogger(
-  private val scope: CoroutineScope,
+  scope: CoroutineScope,
   private val log: LogMessages,
   private val db: Database,
   private val repository: JobStatusRepository,
   private val status: SharedFlow<JobStatus>,
 ) {
-  fun start() {
+  init {
     scope.launch {
       status.collect { jobStatus ->
         try {

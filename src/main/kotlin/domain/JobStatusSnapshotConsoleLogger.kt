@@ -9,10 +9,10 @@ import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
 class JobStatusSnapshotConsoleLogger(
-  private val scope: CoroutineScope,
+  scope: CoroutineScope,
   private val statuses: JobStatuses,
 ) {
-  fun start() {
+  init {
     scope.launch {
       statuses.snapshots.collect { snapshot ->
         val running = statusCSV(snapshot = snapshot, status = JobStatusName.Running)

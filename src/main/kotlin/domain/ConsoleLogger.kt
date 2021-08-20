@@ -6,12 +6,12 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class ConsoleLogger(
-  private val scope: CoroutineScope,
+  scope: CoroutineScope,
   private val messages: SharedFlow<LogMessage>,
   val minLogLevel: LogLevel,
   val format: (LogMessage) -> String = ::defaultLogFormat,
 ) {
-  fun start() {
+  init {
     scope.launch {
       messages.collect { msg ->
         if (msg.level.gte(minLogLevel)) {

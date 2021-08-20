@@ -11,7 +11,7 @@ import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
 class JobScheduler(
-  private val scope: CoroutineScope,
+  scope: CoroutineScope,
   private val queue: JobQueue,
   private val jobs: List<Job<*>>,
   private val scanFrequency: Duration = Duration.seconds(10),
@@ -20,7 +20,7 @@ class JobScheduler(
 
   private val lock = ReentrantLock()
 
-  fun start() {
+  init {
     scope.launch {
       while (true) {
         jobs.forEach { job ->

@@ -10,12 +10,12 @@ import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 
 class SQLLogger(
-  private val scope: CoroutineScope,
+  scope: CoroutineScope,
   private val db: Database,
   private val repository: LogRepository,
   private val messages: SharedFlow<LogMessage>,
 ) {
-  fun start() {
+  init {
     scope.launch {
       messages.collect { msg ->
         transaction(db = db) {

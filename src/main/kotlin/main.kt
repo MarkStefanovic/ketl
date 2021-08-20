@@ -95,26 +95,22 @@ suspend fun startServices(
   transaction(db = db) { SchemaUtils.create(LogTable, JobResultTable, JobStatusTable) }
 
   val logRepository = ExposedLogRepository()
-  val logRepositoryCleaner =
-    ExposedLogRepositoryCleaner(
-      scope = this,
-      db = db,
-      repository = logRepository,
-      log = log,
-      timeBetweenCleanup = Duration.hours(1),
-      durationToKeep = Duration.days(3),
-    )
-  logRepositoryCleaner.start()
+  ExposedLogRepositoryCleaner(
+    scope = this,
+    db = db,
+    repository = logRepository,
+    log = log,
+    timeBetweenCleanup = Duration.hours(1),
+    durationToKeep = Duration.days(3),
+  )
 
   log.info("Starting SQL logging...")
-  val sqlLogger =
-    SQLLogger(
-      scope = this,
-      db = db,
-      repository = logRepository,
-      messages = log.stream,
-    )
-  sqlLogger.start()
+  SQLLogger(
+    scope = this,
+    db = db,
+    repository = logRepository,
+    messages = log.stream,
+  )
 
   val statusRepository = ExposedJobStatusRepository()
   val statuses = JobStatuses(scope = this, jobs = jobs)
@@ -127,60 +123,50 @@ suspend fun startServices(
       repository = statusRepository,
       status = statuses.stream,
     )
-      .start()
 
   JobStatusSnapshotConsoleLogger(
     scope = this,
     statuses = statuses,
   )
-    .start()
 
   val results = JobResults(scope = this, jobs = jobs)
   val resultRepository = ExposedResultRepository()
-  val resultRepositoryCleaner =
-    ExposedResultRepositoryCleaner(
-      scope = this,
-      db = db,
-      repository = resultRepository,
-      log = log,
-      timeBetweenCleanup = Duration.hours(1),
-      durationToKeep = Duration.days(3),
-    )
-  resultRepositoryCleaner.start()
+  ExposedResultRepositoryCleaner(
+    scope = this,
+    db = db,
+    repository = resultRepository,
+    log = log,
+    timeBetweenCleanup = Duration.hours(1),
+    durationToKeep = Duration.days(3),
+  )
 
-  val resultLogger =
-    JobResultLogger(
-      scope = this,
-      db = db,
-      results = results.stream,
-      repository = resultRepository,
-      log = log,
-    )
-  resultLogger.start()
+  JobResultLogger(
+    scope = this,
+    db = db,
+    results = results.stream,
+    repository = resultRepository,
+    log = log,
+  )
 
   val jobQueue = JobQueue()
 
-  val scheduler =
-    JobScheduler(
-      scope = this,
-      queue = jobQueue,
-      jobs = jobs,
-      scanFrequency = Duration.seconds(10),
-    )
-  scheduler.start()
+  JobScheduler(
+    scope = this,
+    queue = jobQueue,
+    jobs = jobs,
+    scanFrequency = Duration.seconds(10),
+  )
 
   log.info("Starting JobRunner with $maxSimultaneousJobs max simultaneous jobs...")
 
-  val jobRunner =
-    JobRunner(
-      scope = this,
-      log = log,
-      queue = jobQueue.stream,
-      results = results,
-      status = statuses,
-      maxSimultaneousJobs = maxSimultaneousJobs,
-    )
-  jobRunner.start()
+  JobRunner(
+    scope = this,
+    log = log,
+    queue = jobQueue.stream,
+    results = results,
+    status = statuses,
+    maxSimultaneousJobs = maxSimultaneousJobs,
+  )
 
   log.info("ketl services launched.")
 }
