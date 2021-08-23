@@ -1,42 +1,34 @@
 package main.kotlin.domain
 
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
-class JobStatusSnapshotConsoleLogger(
-  scope: CoroutineScope,
-  private val statuses: JobStatuses,
-) {
-  init {
-    scope.launch {
-      statuses.snapshots.collect { snapshot ->
-        val running = statusCSV(snapshot = snapshot, status = JobStatusName.Running)
-        val failed = statusCSV(snapshot = snapshot, status = JobStatusName.Failed)
-        val success = statusCSV(snapshot = snapshot, status = JobStatusName.Successful)
-        val ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("M/d @ hh:mm:ss a"))
-        val errors = snapshot.values.filterIsInstance<JobStatus.Failure>()
-        val errorMessages = if (errors.isEmpty()) {
-          ""
-        } else {
-          errors.joinToString("\n") { jobStatus ->
-            "- [${jobStatus.jobName}]: ${formatErrorMessage(jobStatus.errorMessage)}"
-          } + "\n"
-        }
-        println(
-          """$ts
+suspend fun jobStatusSnapshotConsoleLogger(statuses: JobStatuses) {
+  statuses.snapshots.collect { snapshot ->
+    val running = statusCSV(snapshot = snapshot, status = JobStatusName.Running)
+    val failed = statusCSV(snapshot = snapshot, status = JobStatusName.Failed)
+    val success = statusCSV(snapshot = snapshot, status = JobStatusName.Successful)
+    val ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("M/d @ hh:mm:ss a"))
+    val errors = snapshot.values.filterIsInstance<JobStatus.Failure>()
+    val errorMessages =
+      if (errors.isEmpty()) {
+        ""
+      } else {
+        errors.joinToString("\n") { jobStatus ->
+          "- [${jobStatus.jobName}]: ${formatErrorMessage(jobStatus.errorMessage)}"
+        } + "\n"
+      }
+    println(
+      """$ts
           Running: [$running]
           Success: [$success]
           Failed:  [$failed]
           $errorMessages
-          """.trimIndent()
-        )
-      }
-    }
+      """.trimIndent()
+    )
   }
 }
 
