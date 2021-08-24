@@ -1,4 +1,4 @@
-package main.kotlin.domain
+package main.kotlin.ketl.domain
 
 import java.time.LocalDateTime
 import java.time.ZoneOffset

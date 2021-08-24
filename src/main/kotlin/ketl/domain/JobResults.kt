@@ -1,4 +1,4 @@
-package main.kotlin.domain
+package main.kotlin.ketl.domain
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.BufferOverflow

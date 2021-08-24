@@ -1,6 +1,6 @@
 package domain
 
-import main.kotlin.domain.ExecutionWindow
+import main.kotlin.ketl.domain.ExecutionWindow
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import java.time.LocalDateTime

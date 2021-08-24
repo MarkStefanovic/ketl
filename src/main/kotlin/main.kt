@@ -9,30 +9,29 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import main.kotlin.adapter.ExposedJobStatusRepository
-import main.kotlin.adapter.ExposedLogRepository
-import main.kotlin.adapter.ExposedResultRepository
-import main.kotlin.adapter.JobResultTable
-import main.kotlin.adapter.JobStatusTable
-import main.kotlin.adapter.LogTable
-import main.kotlin.adapter.exposedLogRepositoryCleaner
-import main.kotlin.adapter.exposedResultRepositoryCleaner
-import main.kotlin.adapter.sqlLogger
-import main.kotlin.domain.BaseContext
-import main.kotlin.domain.Job
-import main.kotlin.domain.JobContext
-import main.kotlin.domain.JobQueue
-import main.kotlin.domain.JobResults
-import main.kotlin.domain.JobStatuses
-import main.kotlin.domain.LogLevel
-import main.kotlin.domain.LogMessages
-import main.kotlin.domain.Schedule
-import main.kotlin.domain.consoleLogger
-import main.kotlin.domain.jobResultLogger
-import main.kotlin.domain.jobRunner
-import main.kotlin.domain.jobScheduler
-import main.kotlin.domain.jobStatusLogger
-import main.kotlin.domain.jobStatusSnapshotConsoleLogger
+import main.kotlin.ketl.adapter.ExposedJobStatusRepository
+import main.kotlin.ketl.adapter.ExposedLogRepository
+import main.kotlin.ketl.adapter.ExposedResultRepository
+import main.kotlin.ketl.adapter.JobResultTable
+import main.kotlin.ketl.adapter.JobStatusTable
+import main.kotlin.ketl.adapter.LogTable
+import main.kotlin.ketl.adapter.exposedLogRepositoryCleaner
+import main.kotlin.ketl.adapter.exposedResultRepositoryCleaner
+import main.kotlin.ketl.adapter.sqlLogger
+import main.kotlin.ketl.domain.Job
+import main.kotlin.ketl.domain.JobContext
+import main.kotlin.ketl.domain.JobQueue
+import main.kotlin.ketl.domain.JobResults
+import main.kotlin.ketl.domain.JobStatuses
+import main.kotlin.ketl.domain.LogLevel
+import main.kotlin.ketl.domain.LogMessages
+import main.kotlin.ketl.domain.Schedule
+import main.kotlin.ketl.domain.consoleLogger
+import main.kotlin.ketl.domain.jobResultLogger
+import main.kotlin.ketl.domain.jobRunner
+import main.kotlin.ketl.domain.jobScheduler
+import main.kotlin.ketl.domain.jobStatusLogger
+import main.kotlin.ketl.domain.jobStatusSnapshotConsoleLogger
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -85,7 +84,7 @@ fun createJobs(context: JobContext): List<Job<*>> =
 
 @InternalCoroutinesApi
 @ExperimentalTime
-suspend fun startServices(
+private suspend fun startServices(
   db: Database,
   log: LogMessages,
   jobs: List<Job<*>>,
@@ -181,12 +180,12 @@ suspend fun startServices(
 @DelicateCoroutinesApi
 @InternalCoroutinesApi
 @ExperimentalTime
-fun main(): Unit = runBlocking {
+fun run(jobs: List<Job<*>>): Unit = runBlocking {
   val log = LogMessages("ketl")
 
-  val context = BaseContext(log)
+//  val context = BaseContext(log)
 
-  val jobs = createJobs(context)
+//  val jobs = createJobs(context)
 
   launch {
     consoleLogger(
@@ -200,7 +199,7 @@ fun main(): Unit = runBlocking {
       jdbcUrl = "jdbc:sqlite:./etl.db"
       driverClassName = "org.sqlite.JDBC"
 
-      maximumPoolSize = 10
+      maximumPoolSize = 3
       addDataSourceProperty("cachePrepStmts", "true")
       addDataSourceProperty("prepStmtCacheSize", "250")
       addDataSourceProperty("prepStmtCacheSqlLimit", "2048")

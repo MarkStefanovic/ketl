@@ -1,7 +1,7 @@
-package main.kotlin.adapter
+package main.kotlin.ketl.adapter
 
-import main.kotlin.domain.JobResult
-import main.kotlin.domain.ResultRepository
+import main.kotlin.ketl.domain.JobResult
+import main.kotlin.ketl.domain.ResultRepository
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.deleteWhere
@@ -12,11 +12,11 @@ import java.time.LocalDateTime
 class ExposedResultRepository : ResultRepository {
   override fun add(result: JobResult) {
     JobResultTable.insert {
-      it[this.jobName] = result.jobName
-      it[this.start] = result.start
-      it[this.end] = result.end
-      it[this.errorFlag] = result is JobResult.Failure
-      it[this.errorMessage] = if (result is JobResult.Failure) result.errorMessage else null
+      it[jobName] = result.jobName
+      it[start] = result.start
+      it[end] = result.end
+      it[errorFlag] = result is JobResult.Failure
+      it[errorMessage] = if (result is JobResult.Failure) result.errorMessage else null
     }
   }
 

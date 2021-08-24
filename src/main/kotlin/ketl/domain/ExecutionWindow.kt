@@ -1,4 +1,4 @@
-package main.kotlin.domain
+package main.kotlin.ketl.domain
 
 import java.time.DayOfWeek
 import java.time.LocalDateTime

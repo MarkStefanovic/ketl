@@ -1,4 +1,4 @@
-package main.kotlin.domain
+package main.kotlin.ketl.domain
 
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.flow.SharedFlow

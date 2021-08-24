@@ -1,9 +1,9 @@
 package domain
 
-import main.kotlin.domain.BaseContext
-import main.kotlin.domain.Job
-import main.kotlin.domain.LogMessages
-import main.kotlin.domain.Schedule
+import main.kotlin.ketl.domain.BaseContext
+import main.kotlin.ketl.domain.Job
+import main.kotlin.ketl.domain.LogMessages
+import main.kotlin.ketl.domain.Schedule
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import java.time.LocalDate

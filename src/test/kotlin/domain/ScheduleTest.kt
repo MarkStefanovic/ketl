@@ -1,7 +1,7 @@
 package domain
 
-import main.kotlin.domain.Schedule
-import main.kotlin.domain.durationHasElapsed
+import main.kotlin.ketl.domain.Schedule
+import main.kotlin.ketl.domain.durationHasElapsed
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import java.time.LocalDateTime

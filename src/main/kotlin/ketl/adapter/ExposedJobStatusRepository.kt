@@ -1,8 +1,8 @@
-package main.kotlin.adapter
+package main.kotlin.ketl.adapter
 
-import main.kotlin.domain.JobStatus
-import main.kotlin.domain.JobStatusName
-import main.kotlin.domain.JobStatusRepository
+import main.kotlin.ketl.domain.JobStatus
+import main.kotlin.ketl.domain.JobStatusName
+import main.kotlin.ketl.domain.JobStatusRepository
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.update
@@ -20,17 +20,17 @@ class ExposedJobStatusRepository : JobStatusRepository {
     val ct = JobStatusTable.select { JobStatusTable.jobName eq status.jobName }.count()
     if (ct > 0) {
       JobStatusTable.update({ JobStatusTable.jobName eq status.jobName }) {
-        it[this.status] = status.statusName
-        it[this.ts] = LocalDateTime.now()
-        it[this.errorMessage] = error
+        it[JobStatusTable.status] = status.statusName
+        it[ts] = LocalDateTime.now()
+        it[errorMessage] = error
       }
     } else {
 
       JobStatusTable.insert {
-        it[this.jobName] = status.jobName
-        it[this.status] = JobStatusName.Failed
-        it[this.ts] = LocalDateTime.now()
-        it[this.errorMessage] = error
+        it[jobName] = status.jobName
+        it[JobStatusTable.status] = JobStatusName.Failed
+        it[ts] = LocalDateTime.now()
+        it[errorMessage] = error
       }
     }
   }

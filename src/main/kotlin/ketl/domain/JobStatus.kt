@@ -1,4 +1,4 @@
-package main.kotlin.domain
+package main.kotlin.ketl.domain
 
 sealed class JobStatus(val jobName: String, val statusName: JobStatusName) {
   class Initial(jobName: String) :
