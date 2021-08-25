@@ -30,8 +30,6 @@ import kotlinx.coroutines.launch
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.jetbrains.exposed.sql.transactions.transactionManager
-import java.sql.Connection
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
@@ -135,12 +133,23 @@ private suspend fun startServices(
 @ExperimentalTime
 suspend fun start(
   jobs: List<Job<*>>,
-  logToConsole: Boolean = true,
+  logJobMessagesToConsole: Boolean = true,
+  logStatusChangesToConsole: Boolean = true,
   minLogLevel: LogLevel = LogLevel.Info,
+  hikariConfig: HikariConfig = HikariConfig().apply {
+    jdbcUrl = "jdbc:sqlite:./etl.db"
+    driverClassName = "org.sqlite.JDBC"
+
+    maximumPoolSize = 5
+    transactionIsolation = "TRANSACTION_SERIALIZABLE"
+    addDataSourceProperty("cachePrepStmts", "true")
+    addDataSourceProperty("prepStmtCacheSize", "250")
+    addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
+  },
 ) = coroutineScope {
   val log = LogMessages("ketl")
 
-  if (logToConsole)
+  if (logJobMessagesToConsole)
     launch {
       consoleLogger(
         messages = log.stream,
@@ -148,27 +157,28 @@ suspend fun start(
       )
     }
 
-  val hikariConfig =
-    HikariConfig().apply {
-      jdbcUrl = "jdbc:sqlite:./etl.db"
-      driverClassName = "org.sqlite.JDBC"
-
-      maximumPoolSize = 5
-      addDataSourceProperty("cachePrepStmts", "true")
-      addDataSourceProperty("prepStmtCacheSize", "250")
-      addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
-    }
+//  val hikariConfig =
+//    HikariConfig().apply {
+//      jdbcUrl = "jdbc:sqlite:./etl.db"
+//      driverClassName = "org.sqlite.JDBC"
+//
+//      maximumPoolSize = 5
+//      transactionIsolation = "TRANSACTION_SERIALIZABLE"
+//      addDataSourceProperty("cachePrepStmts", "true")
+//      addDataSourceProperty("prepStmtCacheSize", "250")
+//      addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
+//    }
 
   HikariDataSource(hikariConfig).use { ds ->
     val db = Database.connect(ds)
-    db.transactionManager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
+//    db.transactionManager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
 
     startServices(
       db = db,
       log = log,
       jobs = jobs,
       maxSimultaneousJobs = 2,
-      logStatusToConsole = true,
+      logStatusToConsole = logStatusChangesToConsole,
     )
   }
 
