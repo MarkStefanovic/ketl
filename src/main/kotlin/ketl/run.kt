@@ -1,37 +1,32 @@
-package main.kotlin
+package ketl
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import ketl.adapter.ExposedJobStatusRepository
+import ketl.adapter.ExposedLogRepository
+import ketl.adapter.ExposedResultRepository
+import ketl.adapter.JobResultTable
+import ketl.adapter.JobStatusTable
+import ketl.adapter.LogTable
+import ketl.adapter.exposedLogRepositoryCleaner
+import ketl.adapter.exposedResultRepositoryCleaner
+import ketl.adapter.sqlLogger
+import ketl.domain.Job
+import ketl.domain.JobQueue
+import ketl.domain.JobResults
+import ketl.domain.JobStatuses
+import ketl.domain.LogLevel
+import ketl.domain.LogMessages
+import ketl.domain.consoleLogger
+import ketl.domain.jobResultLogger
+import ketl.domain.jobRunner
+import ketl.domain.jobScheduler
+import ketl.domain.jobStatusLogger
+import ketl.domain.jobStatusSnapshotConsoleLogger
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.InternalCoroutinesApi
-import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import main.kotlin.ketl.adapter.ExposedJobStatusRepository
-import main.kotlin.ketl.adapter.ExposedLogRepository
-import main.kotlin.ketl.adapter.ExposedResultRepository
-import main.kotlin.ketl.adapter.JobResultTable
-import main.kotlin.ketl.adapter.JobStatusTable
-import main.kotlin.ketl.adapter.LogTable
-import main.kotlin.ketl.adapter.exposedLogRepositoryCleaner
-import main.kotlin.ketl.adapter.exposedResultRepositoryCleaner
-import main.kotlin.ketl.adapter.sqlLogger
-import main.kotlin.ketl.domain.Job
-import main.kotlin.ketl.domain.JobContext
-import main.kotlin.ketl.domain.JobQueue
-import main.kotlin.ketl.domain.JobResults
-import main.kotlin.ketl.domain.JobStatuses
-import main.kotlin.ketl.domain.LogLevel
-import main.kotlin.ketl.domain.LogMessages
-import main.kotlin.ketl.domain.Schedule
-import main.kotlin.ketl.domain.consoleLogger
-import main.kotlin.ketl.domain.jobResultLogger
-import main.kotlin.ketl.domain.jobRunner
-import main.kotlin.ketl.domain.jobScheduler
-import main.kotlin.ketl.domain.jobStatusLogger
-import main.kotlin.ketl.domain.jobStatusSnapshotConsoleLogger
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -39,48 +34,6 @@ import org.jetbrains.exposed.sql.transactions.transactionManager
 import java.sql.Connection
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
-
-@ExperimentalTime
-fun createJobs(context: JobContext): List<Job<*>> =
-  listOf(
-    Job(
-      name = "job1",
-      schedule =
-      listOf(
-        Schedule(frequency = Duration.seconds(10)),
-        Schedule(frequency = Duration.seconds(25)),
-      ),
-      timeout = Duration.seconds(60),
-      retries = 0,
-      ctx = context,
-    ) {
-      delay(5000)
-      log.info("Job1 done sleeping")
-    },
-    Job(
-      name = "job2",
-      schedule =
-      listOf(
-        Schedule(frequency = Duration.seconds(7)),
-      ),
-      timeout = Duration.seconds(60),
-      retries = 0,
-      ctx = context,
-    ) {
-      delay(10000)
-      log.info("Job2 done sleeping")
-    },
-    Job(
-      name = "job3",
-      schedule =
-      listOf(
-        Schedule(frequency = Duration.seconds(11)),
-      ),
-      timeout = Duration.seconds(60),
-      retries = 0,
-      ctx = context,
-    ) { throw Exception("Whoops!") }
-  )
 
 @InternalCoroutinesApi
 @ExperimentalTime
@@ -180,26 +133,27 @@ private suspend fun startServices(
 @DelicateCoroutinesApi
 @InternalCoroutinesApi
 @ExperimentalTime
-fun run(jobs: List<Job<*>>): Unit = runBlocking {
+suspend fun start(
+  jobs: List<Job<*>>,
+  logToConsole: Boolean = true,
+  minLogLevel: LogLevel = LogLevel.Info,
+) = coroutineScope {
   val log = LogMessages("ketl")
 
-//  val context = BaseContext(log)
-
-//  val jobs = createJobs(context)
-
-  launch {
-    consoleLogger(
-      messages = log.stream,
-      minLogLevel = LogLevel.Debug,
-    )
-  }
+  if (logToConsole)
+    launch {
+      consoleLogger(
+        messages = log.stream,
+        minLogLevel = minLogLevel,
+      )
+    }
 
   val hikariConfig =
     HikariConfig().apply {
       jdbcUrl = "jdbc:sqlite:./etl.db"
       driverClassName = "org.sqlite.JDBC"
 
-      maximumPoolSize = 3
+      maximumPoolSize = 5
       addDataSourceProperty("cachePrepStmts", "true")
       addDataSourceProperty("prepStmtCacheSize", "250")
       addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
@@ -218,5 +172,5 @@ fun run(jobs: List<Job<*>>): Unit = runBlocking {
     )
   }
 
-  awaitCancellation()
+  //  awaitCancellation()
 }

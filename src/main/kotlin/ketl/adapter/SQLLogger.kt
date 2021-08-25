@@ -1,9 +1,9 @@
-package main.kotlin.ketl.adapter
+package ketl.adapter
 
+import ketl.domain.LogMessage
+import ketl.domain.LogRepository
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collect
-import main.kotlin.ketl.domain.LogMessage
-import main.kotlin.ketl.domain.LogRepository
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 

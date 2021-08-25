@@ -1,8 +1,8 @@
-package main.kotlin.ketl.adapter
+package ketl.adapter
 
-import main.kotlin.ketl.domain.JobStatus
-import main.kotlin.ketl.domain.JobStatusName
-import main.kotlin.ketl.domain.JobStatusRepository
+import ketl.domain.JobStatus
+import ketl.domain.JobStatusName
+import ketl.domain.JobStatusRepository
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.update

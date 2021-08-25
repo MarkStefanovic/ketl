@@ -1,7 +1,7 @@
-package main.kotlin.ketl.adapter
+package ketl.adapter
 
-import main.kotlin.ketl.domain.LogMessage
-import main.kotlin.ketl.domain.LogRepository
+import ketl.domain.LogMessage
+import ketl.domain.LogRepository
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import java.time.LocalDateTime

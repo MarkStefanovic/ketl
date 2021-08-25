@@ -1,4 +1,4 @@
-package main.kotlin.ketl.domain
+package ketl.domain
 
 val logLevelNumericValues =
   mapOf(

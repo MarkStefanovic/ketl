@@ -1,7 +1,7 @@
-package main.kotlin.ketl.adapter
+package ketl.adapter
 
-import main.kotlin.ketl.domain.JobResult
-import main.kotlin.ketl.domain.ResultRepository
+import ketl.domain.JobResult
+import ketl.domain.ResultRepository
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.deleteWhere

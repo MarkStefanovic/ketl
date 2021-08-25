@@ -1,4 +1,4 @@
-package main.kotlin.ketl.domain
+package ketl.domain
 
 data class LogMessage(
   val loggerName: String,

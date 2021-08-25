@@ -1,4 +1,4 @@
-package main.kotlin.ketl.domain
+package ketl.domain
 
 abstract class JobContext(val log: LogMessages)
 

@@ -1,8 +1,8 @@
-package main.kotlin.ketl.adapter
+package ketl.adapter
 
+import ketl.domain.LogMessages
+import ketl.domain.ResultRepository
 import kotlinx.coroutines.delay
-import main.kotlin.ketl.domain.LogMessages
-import main.kotlin.ketl.domain.ResultRepository
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.LocalDateTime

@@ -1,7 +1,7 @@
-package main.kotlin.ketl.adapter
+package ketl.adapter
 
-import main.kotlin.ketl.domain.JobStatusName
-import main.kotlin.ketl.domain.LogLevel
+import ketl.domain.JobStatusName
+import ketl.domain.LogLevel
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.`java-time`.CurrentDateTime
