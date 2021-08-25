@@ -18,15 +18,15 @@ repositories {
 dependencies {
     testImplementation(kotlin("test"))
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1-native-mt")
 
     implementation("org.jetbrains.exposed:exposed-core:$exposedVersion")
     implementation("org.jetbrains.exposed:exposed-java-time:$exposedVersion")
     implementation("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")
 
-    implementation("org.xerial:sqlite-jdbc:3.30.1")
+    implementation("org.xerial:sqlite-jdbc:3.36.0.1")
 
-    implementation("org.slf4j:slf4j-nop:1.7.30")
+    implementation("org.slf4j:slf4j-nop:1.7.32")
 
     implementation("io.insert-koin:koin-core:$koinVersion")
 

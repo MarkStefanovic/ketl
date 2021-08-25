@@ -133,6 +133,7 @@ private suspend fun startServices(
 @ExperimentalTime
 suspend fun start(
   jobs: List<Job<*>>,
+  maxSimultaneousJobs: Int = 5,
   logJobMessagesToConsole: Boolean = true,
   logStatusChangesToConsole: Boolean = true,
   minLogLevel: LogLevel = LogLevel.Info,
@@ -177,7 +178,7 @@ suspend fun start(
       db = db,
       log = log,
       jobs = jobs,
-      maxSimultaneousJobs = 2,
+      maxSimultaneousJobs = maxSimultaneousJobs,
       logStatusToConsole = logStatusChangesToConsole,
     )
   }
