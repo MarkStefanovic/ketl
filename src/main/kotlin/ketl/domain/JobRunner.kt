@@ -1,14 +1,15 @@
 package ketl.domain
 
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.newFixedThreadPoolContext
 import kotlinx.coroutines.withTimeout
 import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.Executors
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.ExperimentalTime
 
@@ -22,7 +23,7 @@ suspend fun jobRunner(
 ) = coroutineScope {
   val runningJobs = ConcurrentLinkedQueue<String>()
 
-  val coroutineContext = newFixedThreadPoolContext(maxSimultaneousJobs, "capped_jobs")
+  val dispatcher = Executors.newFixedThreadPool(maxSimultaneousJobs).asCoroutineDispatcher()
 
   queue.collect { job ->
     if (!runningJobs.contains(job.name)) {
@@ -30,7 +31,7 @@ suspend fun jobRunner(
 
       runningJobs.add(job.name)
 
-      launch(context = coroutineContext) {
+      launch(dispatcher) {
         log.info("Starting ${job.name}...")
 
         val start = LocalDateTime.now()
