@@ -10,7 +10,7 @@ class JobQueue {
   private val _stream =
     MutableSharedFlow<Job<*>>(
       replay = 0,
-      extraBufferCapacity = 10,
+      extraBufferCapacity = 1000,
       onBufferOverflow = BufferOverflow.DROP_LATEST,
     )
 

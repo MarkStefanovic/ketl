@@ -11,6 +11,7 @@ import java.time.LocalDateTime
 class ExposedJobStatusRepository : JobStatusRepository {
   override fun upsert(status: JobStatus) {
     val error = when (status) {
+      is JobStatus.Cancelled -> null
       is JobStatus.Failure -> status.errorMessage
       is JobStatus.Initial -> null
       is JobStatus.Running -> null

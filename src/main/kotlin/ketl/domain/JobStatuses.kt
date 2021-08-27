@@ -7,8 +7,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.time.ExperimentalTime
 
 data class Snapshot(val values: Set<JobStatus>)
@@ -20,7 +20,7 @@ class JobStatuses(
 ) {
   private val current: MutableMap<String, JobStatus> = mutableMapOf()
 
-  private val lock = ReentrantLock()
+  private val mutex = Mutex()
 
   private val _stream =
     MutableSharedFlow<JobStatus>(
@@ -36,27 +36,43 @@ class JobStatuses(
   val snapshots = _snapshots.asStateFlow()
 
   init {
-    jobs.forEach { job -> setStatus(JobStatus.Initial(job.name)) }
+    scope.launch {
+      jobs.forEach { job ->
+        setStatus(JobStatus.Initial(job.name))
+      }
+    }
   }
 
-  fun running(jobName: String) {
+  suspend fun cancel(jobName: String) {
+    setStatus(JobStatus.Cancelled(jobName))
+  }
+
+  suspend fun running(jobName: String) {
     setStatus(JobStatus.Running(jobName))
   }
 
-  fun failure(jobName: String, errorMessage: String) {
+  suspend fun failure(jobName: String, errorMessage: String) {
     setStatus(JobStatus.Failure(jobName = jobName, errorMessage = errorMessage))
   }
 
-  fun success(jobName: String) {
+  suspend fun success(jobName: String) {
     setStatus(JobStatus.Success(jobName))
   }
 
-  fun getJobStatuses(): Map<String, JobStatus> = lock.withLock { current }
+  suspend fun getJobStatuses(): Map<String, JobStatus> = mutex.withLock { current }
 
-  fun getStatusForJob(jobName: String): JobStatus? = lock.withLock { current[jobName] }
+  suspend fun getRunningJobCount(): Int =
+    mutex.withLock {
+      current.values.count { it.statusName == JobStatusName.Running }
+    }
 
-  private fun setStatus(status: JobStatus) {
-    lock.withLock {
+  suspend fun getStatusForJob(jobName: String): JobStatus? =
+    mutex.withLock {
+      current[jobName]
+    }
+
+  private suspend fun setStatus(status: JobStatus) {
+    mutex.withLock {
       current[status.jobName] = status
       scope.launch { _stream.emit(status) }
       _snapshots.value = Snapshot(current.values.toSet())

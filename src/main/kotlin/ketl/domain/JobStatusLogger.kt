@@ -1,10 +1,10 @@
 package ketl.domain
 
+import ketl.adapter.Db
 import kotlinx.coroutines.InternalCoroutinesApi
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collect
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.transactions.transaction
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.ExperimentalTime
 
@@ -12,13 +12,13 @@ import kotlin.time.ExperimentalTime
 @InternalCoroutinesApi
 suspend fun jobStatusLogger(
   log: LogMessages,
-  db: Database,
+  db: Db,
   repository: JobStatusRepository,
   status: SharedFlow<JobStatus>,
-) {
+) = coroutineScope {
   status.collect { jobStatus ->
     try {
-      transaction(db = db) { repository.upsert(jobStatus) }
+      db.exec { repository.upsert(jobStatus) }
     } catch (e: Exception) {
       if (e is CancellationException) {
         log.info("jobStatusLogger cancelled.")

@@ -41,3 +41,4 @@ local.properties
 *.sqlite
 .out
 NOTES.txt
+/src/main/kotlin/example.kt

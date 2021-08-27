@@ -3,15 +3,13 @@ package ketl.adapter
 import ketl.domain.LogMessages
 import ketl.domain.ResultRepository
 import kotlinx.coroutines.delay
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.LocalDateTime
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
 suspend fun exposedResultRepositoryCleaner(
-  db: Database,
+  db: Db,
   log: LogMessages,
   repository: ResultRepository,
   timeBetweenCleanup: Duration = Duration.minutes(30),
@@ -20,7 +18,7 @@ suspend fun exposedResultRepositoryCleaner(
   while (true) {
     log.info("Cleaning up the job results log...")
     val cutoff = LocalDateTime.now().minusSeconds(durationToKeep.inWholeSeconds)
-    transaction(db = db) { repository.deleteBefore(cutoff) }
+    db.exec { repository.deleteBefore(cutoff) }
     log.info("Finished cleaning up the job results log.")
     delay(timeBetweenCleanup.inWholeMilliseconds)
   }

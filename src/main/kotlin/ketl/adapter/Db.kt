@@ -1,12 +1,44 @@
 package ketl.adapter
 
+import com.zaxxer.hikari.HikariDataSource
 import ketl.domain.JobStatusName
 import ketl.domain.LogLevel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.Transaction
 import org.jetbrains.exposed.sql.`java-time`.CurrentDateTime
 import org.jetbrains.exposed.sql.`java-time`.datetime
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.util.concurrent.Executors
+
+abstract class Db {
+  abstract suspend fun exec(statement: Transaction.() -> Unit): Job
+}
+
+class SingleThreadedDb(private val ds: HikariDataSource) : Db() {
+  private val dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+
+  private val db: Database
+    get() = Database.connect(ds)
+
+  override suspend fun exec(statement: Transaction.() -> Unit) = coroutineScope {
+    launch(dispatcher) {
+      transaction(db = db) {
+        statement()
+      }
+    }
+  }
+
+//  suspend fun execSQL(sql: String) = coroutineScope {
+//    launch(dispatcher) {
+//      transaction(db = db) { exec(sql) }
+//    }
+//  }
+}
 
 object LogTable : Table("log") {
   val id = integer("id").autoIncrement()
@@ -46,5 +78,3 @@ object JobStatusTable : Table("status") {
     index("ix_status_status", false, status)
   }
 }
-
-fun Database.exec(sql: String) = transaction(db = this) { exec(sql) }

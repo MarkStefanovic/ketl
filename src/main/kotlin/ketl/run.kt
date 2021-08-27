@@ -2,12 +2,14 @@ package ketl
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import ketl.adapter.Db
 import ketl.adapter.ExposedJobStatusRepository
 import ketl.adapter.ExposedLogRepository
 import ketl.adapter.ExposedResultRepository
 import ketl.adapter.JobResultTable
 import ketl.adapter.JobStatusTable
 import ketl.adapter.LogTable
+import ketl.adapter.SingleThreadedDb
 import ketl.adapter.exposedLogRepositoryCleaner
 import ketl.adapter.exposedResultRepositoryCleaner
 import ketl.adapter.sqlLogger
@@ -27,16 +29,14 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.transactions.transaction
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
 @InternalCoroutinesApi
 @ExperimentalTime
 private suspend fun startServices(
-  db: Database,
+  db: Db,
   log: LogMessages,
   jobs: List<Job<*>>,
   maxSimultaneousJobs: Int,
@@ -45,7 +45,7 @@ private suspend fun startServices(
   log.info("Starting ketl services...")
 
   log.info("Checking if ETL tables exist...")
-  transaction(db = db) { SchemaUtils.create(LogTable, JobResultTable, JobStatusTable) }
+  db.exec { SchemaUtils.create(LogTable, JobResultTable, JobStatusTable) }
 
   val logRepository = ExposedLogRepository()
   launch {
@@ -171,11 +171,11 @@ suspend fun start(
 //    }
 
   HikariDataSource(hikariConfig).use { ds ->
-    val db = Database.connect(ds)
+//    val db = Database.connect(ds)
 //    db.transactionManager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
 
     startServices(
-      db = db,
+      db = SingleThreadedDb(ds),
       log = log,
       jobs = jobs,
       maxSimultaneousJobs = maxSimultaneousJobs,

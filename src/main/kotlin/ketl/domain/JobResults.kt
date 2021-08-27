@@ -5,8 +5,8 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
@@ -16,29 +16,31 @@ class JobResults(
 ) {
   private val history = mutableMapOf<String, List<JobResult>>()
 
-  private val lock = ReentrantLock()
+  private val mutex = Mutex()
 
   private val _stream =
     MutableSharedFlow<JobResult>(
       onBufferOverflow = BufferOverflow.DROP_OLDEST,
-      extraBufferCapacity = 10,
+      extraBufferCapacity = 1000,
     )
 
   val stream = _stream.asSharedFlow()
 
   init {
-    lock.withLock { jobs.forEach { job -> history[job.name] = emptyList() } }
+    scope.launch {
+      mutex.withLock { jobs.forEach { job -> history[job.name] = emptyList() } }
+    }
   }
 
   suspend fun add(result: JobResult) {
-    lock.withLock {
+    mutex.withLock {
       val priorResults = history[result.jobName]?.take(9) ?: emptyList()
       history[result.jobName] = priorResults + result
       scope.launch { _stream.emit(result) }
     }
   }
 
-  fun getHistoryForJob(jobName: String): List<JobResult> = lock.withLock {
+  suspend fun getHistoryForJob(jobName: String): List<JobResult> = mutex.withLock {
     history.getOrDefault(jobName, emptyList())
   }
 }
