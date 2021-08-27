@@ -1,12 +1,15 @@
 package ketl.domain
 
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withTimeout
 import java.time.LocalDateTime
+import java.util.concurrent.Executors
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.ExperimentalTime
 
@@ -18,7 +21,7 @@ suspend fun jobRunner(
   results: JobResults,
   maxSimultaneousJobs: Int,
 ) = coroutineScope {
-  //  val dispatcher = Executors.newFixedThreadPool(maxSimultaneousJobs).asCoroutineDispatcher()
+  val dispatcher = Executors.newFixedThreadPool(maxSimultaneousJobs).asCoroutineDispatcher()
 
   queue.collect { job ->
     if (status.getStatusForJob(job.name) !is JobStatus.Running &&
@@ -26,35 +29,37 @@ suspend fun jobRunner(
     ) {
       status.running(job.name)
 
-      try {
-        val result = runJob(log = log, job = job)
-        val msg =
+      launch(dispatcher) {
+        try {
+          val result = runJob(log = log, job = job)
+          val msg =
+            when (result) {
+              is JobResult.Cancelled -> "${result.jobName} was cancelled."
+              is JobResult.Failure -> "${result.jobName} failed: ${result.errorMessage}"
+              is JobResult.Success -> "${result.jobName} finished successfully."
+            }
+          log.info(msg)
+
+          results.add(result)
+
           when (result) {
-            is JobResult.Cancelled -> "${result.jobName} was cancelled."
-            is JobResult.Failure -> "${result.jobName} failed: ${result.errorMessage}"
-            is JobResult.Success -> "${result.jobName} finished successfully."
+            is JobResult.Cancelled ->
+              status.cancel(jobName = job.name)
+            is JobResult.Failure ->
+              status.failure(jobName = job.name, errorMessage = result.errorMessage)
+            is JobResult.Success -> status.success(jobName = job.name)
           }
-        log.info(msg)
-
-        results.add(result)
-
-        when (result) {
-          is JobResult.Cancelled ->
+        } catch (e: Exception) {
+          if (e is CancellationException) {
+            log.info("Cancelling job ${job.name}: ${e.message}")
             status.cancel(jobName = job.name)
-          is JobResult.Failure ->
-            status.failure(jobName = job.name, errorMessage = result.errorMessage)
-          is JobResult.Success -> status.success(jobName = job.name)
-        }
-      } catch (e: Exception) {
-        if (e is CancellationException) {
-          log.info("Cancelling job ${job.name}: ${e.message}")
-          status.cancel(jobName = job.name)
-        } else {
-          log.error(e.stackTraceToString())
-          status.failure(
-            jobName = job.name,
-            errorMessage = e.stackTraceToString(),
-          )
+          } else {
+            log.error(e.stackTraceToString())
+            status.failure(
+              jobName = job.name,
+              errorMessage = e.stackTraceToString(),
+            )
+          }
         }
       }
     }
