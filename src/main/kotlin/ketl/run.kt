@@ -6,9 +6,6 @@ import ketl.adapter.Db
 import ketl.adapter.ExposedJobStatusRepository
 import ketl.adapter.ExposedLogRepository
 import ketl.adapter.ExposedResultRepository
-import ketl.adapter.JobResultTable
-import ketl.adapter.JobStatusTable
-import ketl.adapter.LogTable
 import ketl.adapter.SingleThreadedDb
 import ketl.adapter.exposedLogRepositoryCleaner
 import ketl.adapter.exposedResultRepositoryCleaner
@@ -29,7 +26,6 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import org.jetbrains.exposed.sql.SchemaUtils
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
@@ -45,7 +41,7 @@ private suspend fun startServices(
   log.info("Starting ketl services...")
 
   log.info("Checking if ETL tables exist...")
-  db.exec { SchemaUtils.create(LogTable, JobResultTable, JobStatusTable) }
+  db.createTables().join()
 
   val logRepository = ExposedLogRepository()
   launch {

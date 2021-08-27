@@ -8,6 +8,7 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.Transaction
 import org.jetbrains.exposed.sql.`java-time`.CurrentDateTime
@@ -17,6 +18,8 @@ import java.util.concurrent.Executors
 
 abstract class Db {
   abstract suspend fun exec(statement: Transaction.() -> Unit): Job
+
+  abstract suspend fun createTables(): Job
 }
 
 class SingleThreadedDb(private val ds: HikariDataSource) : Db() {
@@ -29,6 +32,14 @@ class SingleThreadedDb(private val ds: HikariDataSource) : Db() {
     launch(dispatcher) {
       transaction(db = db) {
         statement()
+      }
+    }
+  }
+
+  override suspend fun createTables() = coroutineScope {
+    launch(dispatcher) {
+      transaction(db = db) {
+        SchemaUtils.create(LogTable, JobResultTable, JobStatusTable)
       }
     }
   }

@@ -46,15 +46,15 @@ suspend fun jobRunner(
           is JobResult.Success -> status.success(jobName = job.name)
         }
       } catch (e: Exception) {
-        if (e !is CancellationException) {
+        if (e is CancellationException) {
+          log.info("Cancelling job ${job.name}: ${e.message}")
+          status.cancel(jobName = job.name)
+        } else {
           log.error(e.stackTraceToString())
           status.failure(
             jobName = job.name,
             errorMessage = e.stackTraceToString(),
           )
-        } else {
-          log.info("Cancelling job ${job.name}: ${e.message}")
-          status.cancel(jobName = job.name)
         }
       }
     }
