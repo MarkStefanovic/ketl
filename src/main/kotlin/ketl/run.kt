@@ -22,21 +22,24 @@ import ketl.domain.jobRunner
 import ketl.domain.jobScheduler
 import ketl.domain.jobStatusLogger
 import ketl.domain.jobStatusSnapshotConsoleLogger
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
+@DelicateCoroutinesApi
 @InternalCoroutinesApi
 @ExperimentalTime
 private suspend fun startServices(
   db: Db,
   log: LogMessages,
   jobs: List<Job<*>>,
-  maxSimultaneousJobs: Int,
   logStatusToConsole: Boolean,
+  dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) = coroutineScope {
   log.info("Starting ketl services...")
 
@@ -44,6 +47,8 @@ private suspend fun startServices(
   db.createTables().join()
 
   val logRepository = ExposedLogRepository()
+
+  log.info("Starting log repository cleaner...")
   launch {
     exposedLogRepositoryCleaner(
       db = db,
@@ -51,6 +56,7 @@ private suspend fun startServices(
       log = log,
       timeBetweenCleanup = Duration.hours(1),
       durationToKeep = Duration.days(3),
+      dispatcher = dispatcher,
     )
   }
 
@@ -60,26 +66,54 @@ private suspend fun startServices(
       db = db,
       repository = logRepository,
       messages = log.stream,
+      dispatcher = dispatcher,
     )
   }
 
   val statusRepository = ExposedJobStatusRepository()
-  val statuses = JobStatuses(scope = this, jobs = jobs)
 
-  if (logStatusToConsole)
+  log.info("Starting JobStatuses...")
+  val statuses =
+    JobStatuses(
+      scope = this,
+      jobs = jobs,
+      dispatcher = dispatcher,
+    )
+  launch { statuses.start() }
+
+  log.info("Starting console logger...")
+  if (logStatusToConsole) {
     launch {
       jobStatusLogger(
         log = log,
         db = db,
         repository = statusRepository,
         status = statuses.stream,
+        dispatcher = dispatcher,
       )
     }
+  }
 
-  launch { jobStatusSnapshotConsoleLogger(statuses = statuses) }
+  log.info("Starting job status console logger...")
+  launch {
+    jobStatusSnapshotConsoleLogger(
+      statuses = statuses,
+      dispatcher = dispatcher,
+    )
+  }
 
-  val results = JobResults(scope = this, jobs = jobs)
+  log.info("Starting JobResults...")
+  val results =
+    JobResults(
+      scope = this,
+      jobs = jobs,
+      dispatcher = dispatcher,
+    )
+  launch { results.start() }
+
   val resultRepository = ExposedResultRepository()
+
+  log.info("Starting result repository cleaner...")
   launch {
     exposedResultRepositoryCleaner(
       db = db,
@@ -87,97 +121,93 @@ private suspend fun startServices(
       log = log,
       timeBetweenCleanup = Duration.hours(1),
       durationToKeep = Duration.days(3),
+      dispatcher = dispatcher,
     )
   }
 
+  log.info("Starting job result logger...")
   launch {
     jobResultLogger(
       db = db,
       results = results.stream,
       repository = resultRepository,
       log = log,
+      dispatcher = dispatcher,
     )
   }
 
   val jobQueue = JobQueue()
 
+  log.info("Starting job scheduler...")
   launch {
     jobScheduler(
       queue = jobQueue,
       jobs = jobs,
       scanFrequency = Duration.seconds(10),
+      dispatcher = dispatcher,
     )
   }
 
-  log.info("Starting JobRunner with $maxSimultaneousJobs max simultaneous jobs...")
-
+  log.info("Starting JobRunner...")
   launch {
     jobRunner(
       log = log,
       queue = jobQueue.stream,
       results = results,
       status = statuses,
-      maxSimultaneousJobs = maxSimultaneousJobs,
+      dispatcher = dispatcher,
     )
   }
 
   log.info("ketl services launched.")
 }
 
+fun defaultDatasource(): HikariDataSource {
+  val config =
+    HikariConfig().apply {
+      jdbcUrl = "jdbc:sqlite:./etl.db"
+      driverClassName = "org.sqlite.JDBC"
+
+      maximumPoolSize = 5
+      transactionIsolation = "TRANSACTION_SERIALIZABLE"
+      addDataSourceProperty("cachePrepStmts", "true")
+      addDataSourceProperty("prepStmtCacheSize", "250")
+      addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
+    }
+  return HikariDataSource(config)
+}
+
 @DelicateCoroutinesApi
 @InternalCoroutinesApi
 @ExperimentalTime
 suspend fun start(
+  ds: HikariDataSource,
+  log: LogMessages,
   jobs: List<Job<*>>,
-  maxSimultaneousJobs: Int = 5,
   logJobMessagesToConsole: Boolean = true,
   logStatusChangesToConsole: Boolean = true,
   minLogLevel: LogLevel = LogLevel.Info,
-  hikariConfig: HikariConfig = HikariConfig().apply {
-    jdbcUrl = "jdbc:sqlite:./etl.db"
-    driverClassName = "org.sqlite.JDBC"
-
-    maximumPoolSize = 5
-    transactionIsolation = "TRANSACTION_SERIALIZABLE"
-    addDataSourceProperty("cachePrepStmts", "true")
-    addDataSourceProperty("prepStmtCacheSize", "250")
-    addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
-  },
+  dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) = coroutineScope {
-  val log = LogMessages("ketl")
-
-  if (logJobMessagesToConsole)
-    launch {
+  if (logJobMessagesToConsole) {
+    println("Starting console logger...")
+    launch(dispatcher) {
       consoleLogger(
         messages = log.stream,
         minLogLevel = minLogLevel,
+        dispatcher = dispatcher,
       )
     }
+  }
 
-//  val hikariConfig =
-//    HikariConfig().apply {
-//      jdbcUrl = "jdbc:sqlite:./etl.db"
-//      driverClassName = "org.sqlite.JDBC"
-//
-//      maximumPoolSize = 5
-//      transactionIsolation = "TRANSACTION_SERIALIZABLE"
-//      addDataSourceProperty("cachePrepStmts", "true")
-//      addDataSourceProperty("prepStmtCacheSize", "250")
-//      addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
-//    }
-
-  HikariDataSource(hikariConfig).use { ds ->
-//    val db = Database.connect(ds)
-//    db.transactionManager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
-
+  log.info("Starting services...")
+  launch(dispatcher) {
     startServices(
       db = SingleThreadedDb(ds),
       log = log,
       jobs = jobs,
-      maxSimultaneousJobs = maxSimultaneousJobs,
       logStatusToConsole = logStatusChangesToConsole,
+      dispatcher = dispatcher,
     )
   }
-
-  //  awaitCancellation()
 }

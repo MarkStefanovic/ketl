@@ -1,22 +1,25 @@
 package ketl.domain
 
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
+@DelicateCoroutinesApi
 class JobResults(
-  private val scope: CoroutineScope,
   private val jobs: List<Job<*>>,
+  private val scope: CoroutineScope,
+  private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
-  private val history = mutableMapOf<String, List<JobResult>>()
-
-  private val mutex = Mutex()
+  private val history = ConcurrentHashMap<String, List<JobResult>>()
 
   private val _stream =
     MutableSharedFlow<JobResult>(
@@ -26,21 +29,18 @@ class JobResults(
 
   val stream = _stream.asSharedFlow()
 
-  init {
-    scope.launch {
-      mutex.withLock { jobs.forEach { job -> history[job.name] = emptyList() } }
+  suspend fun start() = coroutineScope {
+    launch(dispatcher) {
+      jobs.forEach { job -> history[job.name] = emptyList() }
     }
   }
 
-  suspend fun add(result: JobResult) {
-    mutex.withLock {
-      val priorResults = history[result.jobName]?.take(9) ?: emptyList()
-      history[result.jobName] = priorResults + result
-      scope.launch { _stream.emit(result) }
-    }
+  fun add(result: JobResult) {
+    val priorResults = history[result.jobName]?.take(9) ?: emptyList()
+    history[result.jobName] = priorResults + result
+    scope.launch { _stream.emit(result) }
   }
 
-  suspend fun getHistoryForJob(jobName: String): List<JobResult> = mutex.withLock {
+  fun getHistoryForJob(jobName: String): List<JobResult> =
     history.getOrDefault(jobName, emptyList())
-  }
 }
