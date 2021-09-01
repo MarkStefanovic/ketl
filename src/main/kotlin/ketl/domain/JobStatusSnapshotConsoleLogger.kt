@@ -27,17 +27,12 @@ suspend fun jobStatusSnapshotConsoleLogger(
         if (errors.isEmpty()) {
           ""
         } else {
-          errors.joinToString("\n") { jobStatus ->
+          errors.joinToString("\n  ") { jobStatus ->
             "- [${jobStatus.jobName}]: ${formatErrorMessage(jobStatus.errorMessage)}"
-          } + "\n"
+          } + "\n  "
         }
       println(
-        """$ts
-          Running: [$running]
-          Success: [$success]
-          Failed:  [$failed]
-          $errorMessages
-        """.trimIndent()
+        "$ts\n  Running: [$running]\n  Success: [$success]\n  Failed:  [$failed]\n  $errorMessages"
       )
     }
   }
