@@ -21,6 +21,7 @@ class LogMessages(private val name: String) {
         loggerName = name,
         level = LogLevel.Debug,
         message = message,
+        thread = Thread.currentThread().name,
       )
     )
   }
@@ -31,6 +32,7 @@ class LogMessages(private val name: String) {
         loggerName = name,
         level = LogLevel.Error,
         message = message,
+        thread = Thread.currentThread().name,
       )
     )
   }
@@ -41,6 +43,7 @@ class LogMessages(private val name: String) {
         loggerName = name,
         level = LogLevel.Info,
         message = message,
+        thread = Thread.currentThread().name,
       )
     )
   }
@@ -51,6 +54,7 @@ class LogMessages(private val name: String) {
         loggerName = name,
         level = LogLevel.Warning,
         message = message,
+        thread = Thread.currentThread().name,
       )
     )
   }
@@ -58,4 +62,4 @@ class LogMessages(private val name: String) {
 
 fun defaultLogFormat(msg: LogMessage): String =
   "${LocalDateTime.now().format(DateTimeFormatter.ofPattern("M/d @ hh:mm:ss a"))} " +
-    "[${msg.loggerName}] ${msg.level.toString().uppercase()}: ${msg.message}"
+    "${msg.level.toString().uppercase()} (${msg.thread}): ${msg.message}"
