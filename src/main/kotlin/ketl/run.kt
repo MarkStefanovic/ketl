@@ -162,13 +162,12 @@ private suspend fun startServices(
   log.info("ketl services launched.")
 }
 
-fun defaultDatasource(): HikariDataSource {
+fun sqliteDatasource(dbPath: String = "./etl.db"): HikariDataSource {
   val config =
     HikariConfig().apply {
-      jdbcUrl = "jdbc:sqlite:./etl.db"
+      jdbcUrl = "jdbc:sqlite:$dbPath"
       driverClassName = "org.sqlite.JDBC"
-
-      maximumPoolSize = 5
+      maximumPoolSize = 1
       transactionIsolation = "TRANSACTION_SERIALIZABLE"
       addDataSourceProperty("cachePrepStmts", "true")
       addDataSourceProperty("prepStmtCacheSize", "250")
@@ -181,9 +180,9 @@ fun defaultDatasource(): HikariDataSource {
 @InternalCoroutinesApi
 @ExperimentalTime
 suspend fun start(
-  ds: HikariDataSource,
   log: LogMessages,
   jobs: List<Job<*>>,
+  ds: HikariDataSource = sqliteDatasource(),
   logJobMessagesToConsole: Boolean = true,
   logStatusChangesToConsole: Boolean = true,
   minLogLevel: LogLevel = LogLevel.Info,
