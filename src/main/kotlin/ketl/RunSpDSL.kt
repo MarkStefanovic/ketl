@@ -17,8 +17,7 @@ enum class DbDialect {
 }
 
 @ExperimentalTime
-fun <Ctx : JobContext> execPgSp(
-  ctx: Ctx,
+fun <Ctx : JobContext> Ctx.execPgSp(
   ds: HikariDataSource,
   schemaName: String,
   spName: String,
@@ -28,7 +27,6 @@ fun <Ctx : JobContext> execPgSp(
   init: SpSQL.Builder.() -> Unit = {},
 ): Job<Ctx> =
   execSp(
-    ctx = ctx,
     ds = ds,
     schemaName = schemaName,
     spName = spName,
@@ -40,8 +38,7 @@ fun <Ctx : JobContext> execPgSp(
   )
 
 @ExperimentalTime
-private fun <Ctx : JobContext> execSp(
-  ctx: Ctx,
+private fun <Ctx : JobContext> Ctx.execSp(
   ds: HikariDataSource,
   schemaName: String,
   spName: String,
@@ -66,7 +63,7 @@ private fun <Ctx : JobContext> execSp(
     schedule = schedule,
     timeout = timeout,
     retries = retries,
-    ctx = ctx,
+    ctx = this,
     onRun = {
       log.info("Executing '$sql'.")
       ds.connection.use { con ->
