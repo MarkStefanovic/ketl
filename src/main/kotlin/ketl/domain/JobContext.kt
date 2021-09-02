@@ -1,5 +1,9 @@
 package ketl.domain
 
-abstract class JobContext(val log: LogMessages)
+import java.io.Closeable
 
-class BaseContext(log: LogMessages) : JobContext(log)
+abstract class JobContext(val log: LogMessages) : Closeable
+
+class BaseContext(log: LogMessages) : JobContext(log) {
+  override fun close() {}
+}
