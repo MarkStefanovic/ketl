@@ -1,6 +1,5 @@
 package ketl
 
-import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import ketl.adapter.Db
 import ketl.adapter.ExposedJobStatusRepository
@@ -160,20 +159,6 @@ private suspend fun startServices(
   }
 
   log.info("ketl services launched.")
-}
-
-fun sqliteDatasource(dbPath: String = "./etl.db"): HikariDataSource {
-  val config =
-    HikariConfig().apply {
-      jdbcUrl = "jdbc:sqlite:$dbPath"
-      driverClassName = "org.sqlite.JDBC"
-      maximumPoolSize = 1
-      transactionIsolation = "TRANSACTION_SERIALIZABLE"
-      addDataSourceProperty("cachePrepStmts", "true")
-      addDataSourceProperty("prepStmtCacheSize", "250")
-      addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
-    }
-  return HikariDataSource(config)
 }
 
 @DelicateCoroutinesApi

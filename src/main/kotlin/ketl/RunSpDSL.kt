@@ -24,7 +24,7 @@ fun <Ctx : JobContext> Ctx.execPgSp(
   schedule: List<Schedule>,
   timeout: Duration = Duration.seconds(3600),
   retries: Int = 0,
-  init: SpSQL.Builder.() -> Unit,
+  init: SpSQL.Builder.() -> Unit = {},
 ): Job<Ctx> =
   execSp(
     ds = ds,
