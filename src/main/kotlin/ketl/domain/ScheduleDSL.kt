@@ -1,47 +1,66 @@
 package ketl.domain
 
 import java.time.DayOfWeek
+import java.time.LocalDateTime
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
 @DslMarker annotation class ScheduleDSL
 
 @ExperimentalTime
-fun every(frequency: Duration, init: Every.Builder.() -> Unit): List<Schedule> =
-  Every.Builder(frequency).apply(init).build().schedule
+fun daily(
+  startDateTime: LocalDateTime = LocalDateTime.MIN,
+  init: DaySchedule.Builder.() -> Unit = {},
+) =
+  DaySchedule.Builder(
+    startDateTime = startDateTime,
+    startWeekday = DayOfWeek.MONDAY,
+    endWeekday = DayOfWeek.SUNDAY,
+  )
+    .apply(init)
+    .build()
+    .schedule
 
 @ExperimentalTime
-data class Every(val schedule: List<Schedule>) {
-  @ScheduleDSL
-  class Builder(private val frequency: Duration) {
-    private val sched = mutableListOf<Schedule>()
-
-    fun build() = Every(sched)
-
-    fun onWeekdays(init: WeeklySchedule.Builder.() -> Unit = {}) {
-      sched.addAll(WeeklySchedule.Builder(frequency).apply(init).build().schedule)
-    }
-  }
-}
+fun every(
+  frequency: Duration,
+  startDateTime: LocalDateTime = LocalDateTime.MIN,
+): List<Schedule> =
+  listOf(
+    Schedule(
+      frequency = frequency,
+      window = ExecutionWindow.ANYTIME,
+      startDateTime = startDateTime,
+    )
+  )
 
 @ExperimentalTime
-data class WeeklySchedule(val schedule: List<Schedule>) {
+fun weekly(
+  startDateTime: LocalDateTime = LocalDateTime.MIN,
+  init: WeekSchedule.Builder.() -> Unit = {},
+): List<Schedule> = WeekSchedule.Builder(startDateTime).apply(init).build().schedule
+
+@ExperimentalTime
+data class WeekSchedule(val schedule: List<Schedule>) {
   @ScheduleDSL
-  class Builder(private val frequency: Duration) {
+  class Builder(private val startDateTime: LocalDateTime) {
     private val sched = mutableListOf<Schedule>()
 
-    fun build() = WeeklySchedule(sched)
+    fun build() = WeekSchedule(sched)
 
     fun between(
-      startWeekday: DayOfWeek = DayOfWeek.MONDAY, // monday = 1
-      endWeekday: DayOfWeek = DayOfWeek.SUNDAY, // sunday = 7
-      init: WeekdaySchedule.Builder.() -> Unit = {},
+      start: DayOfWeek = DayOfWeek.MONDAY, // monday = 1
+      end: DayOfWeek = DayOfWeek.SUNDAY, // sunday = 7
+      init: DaySchedule.Builder.() -> Unit = {},
     ) {
+      require(start.value <= end.value) {
+        "The starting weekday must be on or before the ending weekday, starting from Monday as 1, and Sunday as 7."
+      }
       sched.addAll(
-        WeekdaySchedule.Builder(
-          frequency = frequency,
-          startWeekday = startWeekday,
-          endWeekday = endWeekday,
+        DaySchedule.Builder(
+          startDateTime = startDateTime,
+          startWeekday = start,
+          endWeekday = end,
         )
           .apply(init)
           .build()
@@ -52,24 +71,88 @@ data class WeeklySchedule(val schedule: List<Schedule>) {
 }
 
 @ExperimentalTime
-data class WeekdaySchedule(val schedule: List<Schedule>) {
+data class DaySchedule(val schedule: List<Schedule>) {
   @ScheduleDSL
   class Builder(
-    private val frequency: Duration,
+    private val startDateTime: LocalDateTime,
     private val startWeekday: DayOfWeek,
     private val endWeekday: DayOfWeek,
   ) {
-    private val wins = mutableListOf<ExecutionWindow>()
+    private val sched = mutableListOf<Schedule>()
 
-    fun build() = WeekdaySchedule(wins.map { w -> Schedule(frequency = frequency, window = w) })
+    fun build(): DaySchedule = DaySchedule(sched)
 
-    fun betweenTheHoursOf(startHour: Int, endHour: Int) {
-      wins.add(
+    fun every(frequency: Duration) {
+      val win =
+        ExecutionWindow(
+          startWeekday = startWeekday,
+          endWeekday = endWeekday,
+        )
+      sched.add(
+        Schedule(
+          frequency = frequency,
+          window = win,
+          startDateTime = startDateTime,
+        )
+      )
+    }
+
+    fun between(
+      startHour: Int,
+      endHour: Int,
+      init: Every.Builder.() -> Unit,
+    ) {
+      require(startHour <= endHour) {
+        "The starting hour must be on or before the ending hour."
+      }
+      sched.addAll(
+        Every.Builder(
+          startDateTime = startDateTime,
+          startWeekday = startWeekday,
+          endWeekday = endWeekday,
+          startHour = startHour,
+          endHour = endHour,
+        )
+          .apply(init)
+          .build()
+          .schedule
+      )
+    }
+  }
+}
+
+@ExperimentalTime
+data class Every(val schedule: List<Schedule>) {
+  @ScheduleDSL
+  class Builder(
+    private val startDateTime: LocalDateTime,
+    private val startWeekday: DayOfWeek,
+    private val endWeekday: DayOfWeek,
+    private val startHour: Int,
+    private val endHour: Int,
+  ) {
+    private val sched = mutableListOf<Schedule>()
+
+    fun build(): Every =
+      if (sched.isEmpty()) {
+        throw Exception("No frequency was provided.")
+      } else {
+        Every(sched)
+      }
+
+    fun every(frequency: Duration) {
+      val win =
         ExecutionWindow(
           startWeekday = startWeekday,
           endWeekday = endWeekday,
           startHour = startHour,
           endHour = endHour,
+        )
+      sched.add(
+        Schedule(
+          frequency = frequency,
+          window = win,
+          startDateTime = startDateTime,
         )
       )
     }
