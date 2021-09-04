@@ -8,6 +8,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withTimeout
 import java.time.LocalDateTime
 import kotlin.coroutines.cancellation.CancellationException
@@ -25,12 +26,22 @@ suspend fun jobRunner(
   launch(dispatcher) {
     queue.collect { job ->
       launch {
-        runJob(
-          log = log,
-          job = job,
-          results = results,
-          status = status,
-        )
+        try {
+          runJob(
+            log = log,
+            job = job,
+            results = results,
+            status = status,
+          )
+        } catch (e: Exception) {
+          if (e is CancellationException) {
+            log.info("jobRunner cancelled.")
+            throw e
+          } else {
+            log.error(e.stackTraceToString())
+            throw e
+          }
+        }
       }
     }
   }
@@ -43,7 +54,7 @@ private suspend fun runJob(
   job: Job<*>,
   results: JobResults,
   status: JobStatuses,
-) {
+) = supervisorScope {
   log.info("Starting ${job.name}...")
 
   val start = LocalDateTime.now()

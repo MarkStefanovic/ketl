@@ -3,8 +3,10 @@ package ketl.adapter
 import com.zaxxer.hikari.HikariDataSource
 import ketl.domain.JobStatusName
 import ketl.domain.LogLevel
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.jetbrains.exposed.sql.Database
@@ -19,6 +21,10 @@ import java.util.concurrent.Executors
 abstract class Db {
   abstract suspend fun exec(statement: Transaction.() -> Unit): Job
 
+  abstract fun <R> fetch(statement: Transaction.() -> R): R
+
+  abstract suspend fun <R> fetchAsync(statement: Transaction.() -> R): Deferred<R>
+
   abstract suspend fun createTables(): Job
 }
 
@@ -27,6 +33,19 @@ class SingleThreadedDb(private val ds: HikariDataSource) : Db() {
 
   private val db: Database
     get() = Database.connect(ds)
+
+  override fun <R> fetch(statement: Transaction.() -> R): R =
+    transaction(db = db) {
+      statement()
+    }
+
+  override suspend fun <R> fetchAsync(statement: Transaction.() -> R): Deferred<R> = coroutineScope {
+    async(dispatcher) {
+      transaction(db = db) {
+        statement()
+      }
+    }
+  }
 
   override suspend fun exec(statement: Transaction.() -> Unit) = coroutineScope {
     launch(dispatcher) {

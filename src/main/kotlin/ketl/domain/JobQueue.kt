@@ -11,7 +11,7 @@ class JobQueue {
     MutableSharedFlow<Job<*>>(
       replay = 0,
       extraBufferCapacity = 1000,
-      onBufferOverflow = BufferOverflow.DROP_LATEST,
+      onBufferOverflow = BufferOverflow.SUSPEND,
     )
 
   val stream = _stream.asSharedFlow()

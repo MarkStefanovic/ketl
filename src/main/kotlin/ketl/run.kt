@@ -38,6 +38,7 @@ private suspend fun startServices(
   log: LogMessages,
   jobs: List<Job<*>>,
   logStatusToConsole: Boolean,
+  maxSimultaneousJobs: Int,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) = coroutineScope {
   log.info("Starting ketl services...")
@@ -72,13 +73,11 @@ private suspend fun startServices(
   val statusRepository = ExposedJobStatusRepository()
 
   log.info("Starting JobStatuses...")
-  val statuses =
-    JobStatuses(
-      scope = this,
-      jobs = jobs,
-      dispatcher = dispatcher,
-    )
-  launch { statuses.start() }
+  val statuses = JobStatuses(
+    scope = this,
+    jobs = jobs,
+    dispatcher = dispatcher,
+  )
 
   log.info("Starting console logger...")
   if (logStatusToConsole) {
@@ -102,13 +101,12 @@ private suspend fun startServices(
   }
 
   log.info("Starting JobResults...")
-  val results =
-    JobResults(
-      scope = this,
-      jobs = jobs,
-      dispatcher = dispatcher,
-    )
-  launch { results.start() }
+  val results = JobResults(
+    scope = this,
+    jobs = jobs,
+    dispatcher = dispatcher,
+    db = db,
+  )
 
   val resultRepository = ExposedResultRepository()
 
@@ -142,8 +140,11 @@ private suspend fun startServices(
     jobScheduler(
       queue = jobQueue,
       jobs = jobs,
+      status = statuses,
+      maxSimultaneousJobs = maxSimultaneousJobs,
       scanFrequency = Duration.seconds(10),
       dispatcher = dispatcher,
+      results = results,
     )
   }
 
@@ -167,6 +168,7 @@ private suspend fun startServices(
 suspend fun start(
   log: LogMessages,
   jobs: List<Job<*>>,
+  maxSimultaneousJobs: Int,
   ds: HikariDataSource = sqliteDatasource(),
   logJobMessagesToConsole: Boolean = true,
   logStatusChangesToConsole: Boolean = true,
@@ -192,6 +194,7 @@ suspend fun start(
       jobs = jobs,
       logStatusToConsole = logStatusChangesToConsole,
       dispatcher = dispatcher,
+      maxSimultaneousJobs = maxSimultaneousJobs,
     )
   }
 }

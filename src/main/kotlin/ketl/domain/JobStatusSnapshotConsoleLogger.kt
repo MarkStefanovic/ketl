@@ -22,7 +22,7 @@ suspend fun jobStatusSnapshotConsoleLogger(
       val failed = statusCSV(snapshot = snapshot, status = JobStatusName.Failed)
       val success = statusCSV(snapshot = snapshot, status = JobStatusName.Successful)
       val ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("M/d @ hh:mm:ss a"))
-      val errors = snapshot.values.filterIsInstance<JobStatus.Failure>()
+      val errors = snapshot.values.filterIsInstance<JobStatus.Failure>().sortedBy { it.jobName }
       val errorMessages =
         if (errors.isEmpty()) {
           ""

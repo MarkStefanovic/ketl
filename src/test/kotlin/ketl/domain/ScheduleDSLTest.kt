@@ -52,7 +52,7 @@ class ScheduleDSLTest {
           every(Duration.minutes(5))
         }
         between(20, 23) {
-          every(Duration.minutes(5))
+          every(Duration.minutes(10))
         }
       }
     }
@@ -77,7 +77,7 @@ class ScheduleDSLTest {
           startDateTime = LocalDateTime.MIN
         ),
         Schedule(
-          frequency = Duration.minutes(5),
+          frequency = Duration.minutes(10),
           window = ExecutionWindow(
             startMonth = Month.JANUARY,
             endMonth = Month.DECEMBER,

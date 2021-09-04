@@ -1,11 +1,12 @@
 package ketl.domain
 
+import ketl.adapter.Db
+import ketl.adapter.ExposedResultRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
@@ -15,11 +16,12 @@ import kotlin.time.ExperimentalTime
 @ExperimentalTime
 @DelicateCoroutinesApi
 class JobResults(
+  private val db: Db,
   private val jobs: List<Job<*>>,
   private val scope: CoroutineScope,
   private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
-  private val history = ConcurrentHashMap<String, List<JobResult>>()
+  val latestResults = ConcurrentHashMap<String, JobResult>()
 
   private val _stream =
     MutableSharedFlow<JobResult>(
@@ -29,18 +31,22 @@ class JobResults(
 
   val stream = _stream.asSharedFlow()
 
-  suspend fun start() = coroutineScope {
-    launch(dispatcher) {
-      jobs.forEach { job -> history[job.name] = emptyList() }
+  init {
+    val repo = ExposedResultRepository()
+    scope.launch(dispatcher) {
+      jobs.forEach { job ->
+        latestResults[job.name] = db.fetch {
+          repo.getLatestResultsForJob(jobName = job.name, n = 1)
+        }.first()
+      }
     }
   }
 
   fun add(result: JobResult) {
-    val priorResults = history[result.jobName]?.take(9) ?: emptyList()
-    history[result.jobName] = priorResults + result
-    scope.launch { _stream.emit(result) }
+    latestResults[result.jobName] = result
+    scope.launch(dispatcher) { _stream.emit(result) }
   }
 
-  fun getHistoryForJob(jobName: String): List<JobResult> =
-    history.getOrDefault(jobName, emptyList())
+//  fun latestResult(jobName: String): JobResult? =
+//    latestResults[jobName]
 }

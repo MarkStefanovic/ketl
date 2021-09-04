@@ -1,6 +1,9 @@
 package ketl.domain
 
-sealed class JobStatus(val jobName: String, val statusName: JobStatusName) {
+sealed class JobStatus(
+  val jobName: String,
+  val statusName: JobStatusName
+) {
   class Cancelled(jobName: String) :
     JobStatus(jobName = jobName, statusName = JobStatusName.Cancelled)
 

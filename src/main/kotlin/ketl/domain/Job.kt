@@ -11,6 +11,7 @@ data class Job<Ctx : JobContext>(
   val schedule: List<Schedule>,
   val timeout: Duration = Duration.days(9999),
   val retries: Int = 0,
+  val dependencies: Set<String> = setOf(),
   val ctx: Ctx,
   val onRun: suspend Ctx.() -> Unit,
 ) {
@@ -32,5 +33,6 @@ data class Job<Ctx : JobContext>(
       )
     }
 
-  @ExperimentalTime suspend fun run() = coroutineScope { with(ctx) { onRun() } }
+  @ExperimentalTime
+  suspend fun run() = coroutineScope { with(ctx) { onRun() } }
 }
