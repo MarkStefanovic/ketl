@@ -35,9 +35,9 @@ suspend fun jobScheduler(
               refTime = LocalDateTime.now(),
             )
             val depsRan = dependenciesHaveRun(
+              jobName = job.name,
               dependencies = job.dependencies,
-              results = results.latestResults,
-              lastRun = results.latestResults[job.name]?.end
+              results = results,
             )
             if (ready && depsRan) {
               jobsToAdd--
@@ -54,20 +54,28 @@ suspend fun jobScheduler(
   }
 }
 
-fun dependenciesHaveRun(
+@DelicateCoroutinesApi
+@ExperimentalTime
+suspend fun dependenciesHaveRun(
+  jobName: String,
   dependencies: Set<String>,
-  results: ConcurrentHashMap<String, JobResult>,
-  lastRun: LocalDateTime?,
-): Boolean =
-  if (dependencies.isEmpty()) {
+  results: JobResults,
+): Boolean {
+  val lastRun = results.getLatestResultForJob(jobName)?.end
+  return if (dependencies.isEmpty()) {
     true
   } else {
-    dependencies.any { jobName ->
-      val latestResult = results[jobName]
+    dependencies.any { dep ->
+      val latestResult = results.getLatestResultForJob(dep)
       if (latestResult == null) {
         false
       } else {
-        latestResult.end > lastRun
+        if (lastRun == null) {
+          true
+        } else {
+          latestResult.end > lastRun
+        }
       }
     }
   }
+}

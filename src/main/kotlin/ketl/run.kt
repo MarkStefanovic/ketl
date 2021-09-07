@@ -100,14 +100,6 @@ private suspend fun startServices(
     )
   }
 
-  log.info("Starting JobResults...")
-  val results = JobResults(
-    scope = this,
-    jobs = jobs,
-    dispatcher = dispatcher,
-    db = db,
-  )
-
   val resultRepository = ExposedResultRepository()
 
   log.info("Starting result repository cleaner...")
@@ -121,6 +113,14 @@ private suspend fun startServices(
       dispatcher = dispatcher,
     )
   }
+
+  log.info("Starting JobResults...")
+  val results = JobResults(
+    scope = this,
+    jobs = jobs,
+    dispatcher = dispatcher,
+    db = db,
+  )
 
   log.info("Starting job result logger...")
   launch {

@@ -22,6 +22,7 @@ fun <Ctx : JobContext> Ctx.execPgSp(
   schemaName: String,
   spName: String,
   schedule: List<Schedule>,
+  dependencies: Set<String> = setOf(),
   timeout: Duration = Duration.seconds(3600),
   retries: Int = 0,
   init: SpSQL.Builder.() -> Unit = {},
@@ -32,6 +33,7 @@ fun <Ctx : JobContext> Ctx.execPgSp(
     spName = spName,
     dialect = DbDialect.PostgreSQL,
     schedule = schedule,
+    dependencies = dependencies,
     timeout = timeout,
     retries = retries,
     init = init,
@@ -46,6 +48,7 @@ private fun <Ctx : JobContext> Ctx.execSp(
   schedule: List<Schedule>,
   timeout: Duration,
   retries: Int,
+  dependencies: Set<String>,
   init: SpSQL.Builder.() -> Unit,
 ): Job<Ctx> {
   val jobName = "$schemaName.$spName"
@@ -63,6 +66,7 @@ private fun <Ctx : JobContext> Ctx.execSp(
     schedule = schedule,
     timeout = timeout,
     retries = retries,
+    dependencies = dependencies,
     ctx = this,
     onRun = {
       log.info("Executing '$sql'.")
@@ -94,8 +98,12 @@ data class SpSQL(val sql: String) {
         when (dialect) {
           DbDialect.PostgreSQL -> {
             val paramSQL =
-              parameters.values.joinToString(", ") { param ->
-                param.sql
+              if (parameters.values.isEmpty()) {
+                ""
+              } else {
+                parameters.values.joinToString(", ") { param ->
+                  param.sql
+                }
               }
             "CALL $schemaName.$spName($paramSQL)"
           }

@@ -10,7 +10,8 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
-import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
@@ -18,10 +19,10 @@ import kotlin.time.ExperimentalTime
 class JobResults(
   private val db: Db,
   private val jobs: List<Job<*>>,
-  private val scope: CoroutineScope,
-  private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
+  scope: CoroutineScope,
+  dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
-  val latestResults = ConcurrentHashMap<String, JobResult>()
+  private val latestResults = mutableMapOf<String, JobResult?>()
 
   private val _stream =
     MutableSharedFlow<JobResult>(
@@ -31,22 +32,29 @@ class JobResults(
 
   val stream = _stream.asSharedFlow()
 
+  private val mutex = Mutex()
+
   init {
     val repo = ExposedResultRepository()
     scope.launch(dispatcher) {
       jobs.forEach { job ->
-        latestResults[job.name] = db.fetch {
-          repo.getLatestResultsForJob(jobName = job.name, n = 1)
-        }.first()
+        mutex.withLock {
+          latestResults[job.name] = db.fetch {
+            repo.getLatestResultsForJob(jobName = job.name, n = 1)
+          }.firstOrNull()
+        }
       }
     }
   }
 
-  fun add(result: JobResult) {
-    latestResults[result.jobName] = result
-    scope.launch(dispatcher) { _stream.emit(result) }
+  suspend fun add(result: JobResult) {
+    mutex.withLock {
+      latestResults[result.jobName] = result
+    }
+    _stream.emit(result)
   }
 
-//  fun latestResult(jobName: String): JobResult? =
-//    latestResults[jobName]
+  suspend fun getLatestResultForJob(jobName: String) = mutex.withLock {
+    latestResults[jobName]
+  }
 }
