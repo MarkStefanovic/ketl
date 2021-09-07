@@ -1,21 +1,24 @@
 package ketl.domain
 
+import java.time.LocalDateTime
+
 sealed class JobStatus(
   val jobName: String,
-  val statusName: JobStatusName
+  val statusName: JobStatusName,
+  val ts: LocalDateTime,
 ) {
-  class Cancelled(jobName: String) :
-    JobStatus(jobName = jobName, statusName = JobStatusName.Cancelled)
+  class Cancelled(jobName: String, ts: LocalDateTime) :
+    JobStatus(jobName = jobName, statusName = JobStatusName.Cancelled, ts = ts)
 
-  class Initial(jobName: String) :
-    JobStatus(jobName = jobName, statusName = JobStatusName.Initial)
+  class Initial(jobName: String, ts: LocalDateTime) :
+    JobStatus(jobName = jobName, statusName = JobStatusName.Initial, ts = ts)
 
-  class Running(jobName: String) :
-    JobStatus(jobName = jobName, statusName = JobStatusName.Running)
+  class Running(jobName: String, ts: LocalDateTime) :
+    JobStatus(jobName = jobName, statusName = JobStatusName.Running, ts = ts)
 
-  class Success(jobName: String) :
-    JobStatus(jobName = jobName, statusName = JobStatusName.Successful)
+  class Success(jobName: String, ts: LocalDateTime) :
+    JobStatus(jobName = jobName, statusName = JobStatusName.Successful, ts = ts)
 
-  class Failure(jobName: String, val errorMessage: String) :
-    JobStatus(jobName = jobName, statusName = JobStatusName.Failed)
+  class Failure(jobName: String, ts: LocalDateTime, val errorMessage: String) :
+    JobStatus(jobName = jobName, statusName = JobStatusName.Failed, ts = ts)
 }

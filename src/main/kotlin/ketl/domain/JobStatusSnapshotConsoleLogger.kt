@@ -21,14 +21,15 @@ suspend fun jobStatusSnapshotConsoleLogger(
       val running = statusCSV(snapshot = snapshot, status = JobStatusName.Running)
       val failed = statusCSV(snapshot = snapshot, status = JobStatusName.Failed)
       val success = statusCSV(snapshot = snapshot, status = JobStatusName.Successful)
-      val ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("M/d @ hh:mm:ss a"))
+      val dtFormatter = DateTimeFormatter.ofPattern("M/d @ hh:mm:ss a")
+      val ts = LocalDateTime.now().format(dtFormatter)
       val errors = snapshot.values.filterIsInstance<JobStatus.Failure>().sortedBy { it.jobName }
       val errorMessages =
         if (errors.isEmpty()) {
           ""
         } else {
           errors.joinToString("\n  ") { jobStatus ->
-            "- [${jobStatus.jobName}]: ${formatErrorMessage(jobStatus.errorMessage)}"
+            "- [${jobStatus.jobName}] ${jobStatus.ts.format(dtFormatter)}: ${formatErrorMessage(jobStatus.errorMessage)}"
           } + "\n  "
         }
       println(

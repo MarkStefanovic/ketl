@@ -6,7 +6,7 @@ import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import java.time.LocalDateTime
 
-class ExposedLogRepository : LogRepository {
+class DbLogRepository : LogRepository {
   override fun add(message: LogMessage) {
     LogTable.insert {
       it[name] = message.loggerName

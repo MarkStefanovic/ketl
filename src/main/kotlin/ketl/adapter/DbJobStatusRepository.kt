@@ -8,7 +8,7 @@ import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.update
 import java.time.LocalDateTime
 
-class ExposedJobStatusRepository : JobStatusRepository {
+class DbJobStatusRepository : JobStatusRepository {
   override fun upsert(status: JobStatus) {
     val error = when (status) {
       is JobStatus.Cancelled -> null

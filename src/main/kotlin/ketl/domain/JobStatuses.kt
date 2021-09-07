@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.ExperimentalTime
 
@@ -38,25 +39,25 @@ class JobStatuses(
   init {
     scope.launch(dispatcher) {
       jobs.forEach { job ->
-        setStatus(JobStatus.Initial(job.name))
+        setStatus(JobStatus.Initial(jobName = job.name, ts = LocalDateTime.now()))
       }
     }
   }
 
   fun cancel(jobName: String) {
-    setStatus(JobStatus.Cancelled(jobName))
+    setStatus(JobStatus.Cancelled(jobName = jobName, ts = LocalDateTime.now()))
   }
 
   fun running(jobName: String) {
-    setStatus(JobStatus.Running(jobName))
+    setStatus(JobStatus.Running(jobName = jobName, ts = LocalDateTime.now()))
   }
 
   fun failure(jobName: String, errorMessage: String) {
-    setStatus(JobStatus.Failure(jobName = jobName, errorMessage = errorMessage))
+    setStatus(JobStatus.Failure(jobName = jobName, ts = LocalDateTime.now(), errorMessage = errorMessage))
   }
 
   fun success(jobName: String) {
-    setStatus(JobStatus.Success(jobName))
+    setStatus(JobStatus.Success(jobName = jobName, ts = LocalDateTime.now()))
   }
 
   fun runningJobCount(): Int =

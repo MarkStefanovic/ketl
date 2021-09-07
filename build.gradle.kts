@@ -16,7 +16,7 @@ repositories {
 }
 
 dependencies {
-    testImplementation(kotlin("test"))
+    testImplementation("org.jetbrains.kotlin:kotlin-test:1.5.21")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1-native-mt")
 
@@ -24,7 +24,7 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-java-time:$exposedVersion")
     implementation("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")
 
-    implementation("org.xerial:sqlite-jdbc:3.36.0.1")
+    implementation("org.xerial:sqlite-jdbc:3.36.0.2")
 
     implementation("org.slf4j:slf4j-nop:1.7.32")
 

@@ -2,8 +2,8 @@ package ketl
 
 import com.zaxxer.hikari.HikariDataSource
 import ketl.adapter.Db
-import ketl.adapter.ExposedJobStatusRepository
-import ketl.adapter.ExposedLogRepository
+import ketl.adapter.DbJobStatusRepository
+import ketl.adapter.DbLogRepository
 import ketl.adapter.ExposedResultRepository
 import ketl.adapter.SingleThreadedDb
 import ketl.adapter.exposedLogRepositoryCleaner
@@ -46,7 +46,7 @@ private suspend fun startServices(
   log.info("Checking if ETL tables exist...")
   db.createTables().join()
 
-  val logRepository = ExposedLogRepository()
+  val logRepository = DbLogRepository()
 
   log.info("Starting log repository cleaner...")
   launch {
@@ -70,7 +70,7 @@ private suspend fun startServices(
     )
   }
 
-  val statusRepository = ExposedJobStatusRepository()
+  val statusRepository = DbJobStatusRepository()
 
   log.info("Starting JobStatuses...")
   val statuses = JobStatuses(
