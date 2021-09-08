@@ -55,7 +55,7 @@ private suspend fun runJob(
   results: JobResults,
   status: JobStatuses,
 ) = supervisorScope {
-  log.info("Starting ${job.name}...")
+  log.debug("Starting ${job.name}...")
 
   val start = LocalDateTime.now()
 
@@ -69,13 +69,11 @@ private suspend fun runJob(
           start = start,
           retries = 0,
         )
-      val msg =
-        when (result) {
-          is JobResult.Cancelled -> "${result.jobName} was cancelled."
-          is JobResult.Failure -> "${result.jobName} failed: ${result.errorMessage}"
-          is JobResult.Success -> "${result.jobName} finished successfully."
-        }
-      log.info(msg)
+      when (result) {
+        is JobResult.Cancelled -> log.info("${result.jobName} was cancelled.")
+        is JobResult.Failure -> log.error("${result.jobName} failed: ${result.errorMessage}")
+        is JobResult.Success -> log.debug("${result.jobName} finished successfully.")
+      }
 
       results.add(result)
 
