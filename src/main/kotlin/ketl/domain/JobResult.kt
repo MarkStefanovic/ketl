@@ -34,6 +34,18 @@ sealed class JobResult(
       end = end,
     )
 
+  class Skipped(
+    jobName: String,
+    start: LocalDateTime,
+    end: LocalDateTime,
+    val reason: String,
+  ) :
+    JobResult(
+      jobName = jobName,
+      start = start,
+      end = end,
+    )
+
   class Success(
     jobName: String,
     start: LocalDateTime,

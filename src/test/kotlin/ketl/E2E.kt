@@ -23,6 +23,7 @@ fun createJobs(context: JobContext): List<Job<*>> =
     ) {
       delay(5000)
       log.info("Job1 done sleeping")
+      success()
     },
     Job(
       name = "job2",
@@ -36,6 +37,7 @@ fun createJobs(context: JobContext): List<Job<*>> =
     ) {
       delay(10000)
       log.info("Job2 done sleeping")
+      success()
     },
     Job(
       name = "job3",

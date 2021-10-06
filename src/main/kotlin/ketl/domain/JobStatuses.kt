@@ -56,6 +56,10 @@ class JobStatuses(
     setStatus(JobStatus.Failure(jobName = jobName, ts = LocalDateTime.now(), errorMessage = errorMessage))
   }
 
+  fun skipped(jobName: String, reason: String) {
+    setStatus(JobStatus.Skipped(jobName = jobName, ts = LocalDateTime.now(), reason = reason))
+  }
+
   fun success(jobName: String) {
     setStatus(JobStatus.Success(jobName = jobName, ts = LocalDateTime.now()))
   }

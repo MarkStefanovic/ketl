@@ -76,10 +76,11 @@ private fun <Ctx : JobContext> Ctx.execSp(
             val executionMillis = measureTimeMillis { stmt.execute(sql) }
             log.info("Successfully ran '$sql.' in $executionMillis milliseconds.")
           } catch (e: Exception) {
-            log.error("An error occurred while running '$sql':\n  Error: ${e.message}")
+            failure("An error occurred while running '$sql':\n  Error: ${e.message}")
           }
         }
       }
+      success()
     }
   )
 }

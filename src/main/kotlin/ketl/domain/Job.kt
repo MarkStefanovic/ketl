@@ -13,7 +13,7 @@ data class Job<Ctx : JobContext>(
   val retries: Int = 0,
   val dependencies: Set<String> = setOf(),
   val ctx: Ctx,
-  val onRun: suspend Ctx.() -> Unit,
+  val onRun: suspend Ctx.() -> Status,
 ) {
 
   init {

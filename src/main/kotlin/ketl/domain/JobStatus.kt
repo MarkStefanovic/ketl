@@ -16,6 +16,9 @@ sealed class JobStatus(
   class Running(jobName: String, ts: LocalDateTime) :
     JobStatus(jobName = jobName, statusName = JobStatusName.Running, ts = ts)
 
+  class Skipped(jobName: String, ts: LocalDateTime, val reason: String) :
+    JobStatus(jobName = jobName, statusName = JobStatusName.Skipped, ts = ts)
+
   class Success(jobName: String, ts: LocalDateTime) :
     JobStatus(jobName = jobName, statusName = JobStatusName.Successful, ts = ts)
 

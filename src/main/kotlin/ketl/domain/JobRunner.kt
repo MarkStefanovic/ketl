@@ -73,6 +73,7 @@ private suspend fun runJob(
         is JobResult.Cancelled -> log.info("${result.jobName} was cancelled.")
         is JobResult.Failure -> log.error("${result.jobName} failed: ${result.errorMessage}")
         is JobResult.Success -> log.debug("${result.jobName} finished successfully.")
+        is JobResult.Skipped -> log.info("${result.jobName} was skipped.")
       }
 
       results.add(result)
@@ -82,6 +83,7 @@ private suspend fun runJob(
         is JobResult.Failure ->
           status.failure(jobName = job.name, errorMessage = result.errorMessage)
         is JobResult.Success -> status.success(jobName = job.name)
+        is JobResult.Skipped -> status.skipped(jobName = job.name, reason = result.reason)
       }
     }
   } catch (_: TimeoutCancellationException) {
@@ -125,12 +127,35 @@ suspend fun runWithRetry(
   retries: Int,
 ): JobResult =
   try {
-    job.run()
-    JobResult.Success(
-      jobName = job.name,
-      start = start,
-      end = LocalDateTime.now(),
-    )
+    when (val status = job.run()) {
+      is Status.Failure -> {
+        if (retries >= job.retries) {
+          JobResult.Failure(
+            jobName = job.name,
+            start = start,
+            end = LocalDateTime.now(),
+            errorMessage = status.errorMessage,
+          )
+        } else {
+          runWithRetry(
+            job = job,
+            start = start,
+            retries = retries + 1,
+          )
+        }
+      }
+      is Status.Skipped -> JobResult.Skipped(
+        jobName = job.name,
+        start = start,
+        end = LocalDateTime.now(),
+        reason = status.reason,
+      )
+      Status.Success -> JobResult.Success(
+        jobName = job.name,
+        start = start,
+        end = LocalDateTime.now(),
+      )
+    }
   } catch (e: Exception) {
     if (retries >= job.retries) {
       JobResult.Failure(
