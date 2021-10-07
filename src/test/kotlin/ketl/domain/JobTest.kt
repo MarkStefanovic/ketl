@@ -21,7 +21,9 @@ class JobTest {
       timeout = Duration.seconds(10),
       retries = 0,
       ctx = BaseContext(log),
-    ) {}
+    ) {
+      success()
+    }
     val isReady = job.isReady(
       refTime = LocalDate.of(2021, 8, 14).atStartOfDay(),
       lastRun = null,

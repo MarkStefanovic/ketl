@@ -61,19 +61,23 @@ suspend fun dependenciesHaveRun(
   dependencies: Set<String>,
   results: JobResults,
 ): Boolean {
-  val lastRun = results.getLatestResultForJob(jobName)?.end
+  val latestResult = results.getLatestResultForJob(jobName)
   return if (dependencies.isEmpty()) {
     true
   } else {
     dependencies.any { dep ->
-      val latestResult = results.getLatestResultForJob(dep)
-      if (latestResult == null) {
+      val latestDepResult = results.getLatestResultForJob(dep)
+      if (latestDepResult == null) {
         false
       } else {
-        if (lastRun == null) {
+        if (latestResult == null) {
           true
         } else {
-          latestResult.end > lastRun
+          if (latestResult is JobResult.Success) {
+            latestDepResult.end > latestResult.end
+          } else {
+            false
+          }
         }
       }
     }

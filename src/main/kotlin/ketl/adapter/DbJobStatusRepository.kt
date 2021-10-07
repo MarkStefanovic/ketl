@@ -15,6 +15,7 @@ class DbJobStatusRepository : JobStatusRepository {
       is JobStatus.Failure -> status.errorMessage
       is JobStatus.Initial -> null
       is JobStatus.Running -> null
+      is JobStatus.Skipped -> null
       is JobStatus.Success -> null
     }
 
