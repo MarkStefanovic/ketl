@@ -85,14 +85,17 @@ object JobResultTable : Table("result") {
   val jobName = text("job_name")
   val start = datetime("start")
   val end = datetime("end")
-  val errorFlag = bool("error_flag")
+  val failed = bool("failure_flag")
+  val cancelled = bool("cancelled_flag")
+  val skipped = bool("skipped_flag")
   val errorMessage = text("error_message").nullable()
+  val skippedReason = text("skipped_reason").nullable()
 
   override val primaryKey = PrimaryKey(id, name = "pk_result_id")
 
   init {
     index("ix_result_job_name_ts", false, jobName, start)
-    index("ix_result_start_error_flag", false, start, errorFlag)
+    index("ix_result_start_error_flag", false, start, failed)
   }
 }
 

@@ -115,12 +115,7 @@ private suspend fun startServices(
   }
 
   log.info("Starting JobResults...")
-  val results = JobResults(
-    scope = this,
-    jobs = jobs,
-    dispatcher = dispatcher,
-    db = db,
-  )
+  val results = JobResults(db = db)
 
   log.info("Starting job result logger...")
   launch {

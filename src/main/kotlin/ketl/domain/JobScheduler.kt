@@ -56,7 +56,7 @@ suspend fun jobScheduler(
 
 @DelicateCoroutinesApi
 @ExperimentalTime
-suspend fun dependenciesHaveRun(
+fun dependenciesHaveRun(
   jobName: String,
   dependencies: Set<String>,
   results: JobResults,
@@ -67,13 +67,13 @@ suspend fun dependenciesHaveRun(
   } else {
     dependencies.any { dep ->
       val latestDepResult = results.getLatestResultForJob(dep)
-      if (latestDepResult == null) {
-        false
+      if (latestResult == null) {
+        true
       } else {
-        if (latestResult == null) {
-          true
+        if (latestDepResult == null) {
+          false
         } else {
-          if (latestResult is JobResult.Success) {
+          if (latestDepResult is JobResult.Success) {
             latestDepResult.end > latestResult.end
           } else {
             false

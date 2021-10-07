@@ -46,4 +46,3 @@ fun pgDatasource(
   }
   return HikariDataSource(config)
 }
-
