@@ -19,8 +19,13 @@ suspend fun jobStatusSnapshotConsoleLogger(
   launch(dispatcher) {
     statuses.snapshots.collect { snapshot ->
       val running = statusCSV(snapshot = snapshot, status = JobStatusName.Running)
-      val failed = statusCSV(snapshot = snapshot, status = JobStatusName.Failed)
-      val success = statusCSV(snapshot = snapshot, status = JobStatusName.Successful)
+      val failedCount = snapshot.values.count { it.statusName == JobStatusName.Failed }
+      val successes = snapshot.values.count { it.statusName == JobStatusName.Successful }
+      val success = if (successes > 10) {
+        "$successes Jobs"
+      } else {
+        "[${statusCSV(snapshot = snapshot, status = JobStatusName.Successful)}]"
+      }
       val dtFormatter = DateTimeFormatter.ofPattern("M/d @ hh:mm:ss a")
       val ts = LocalDateTime.now().format(dtFormatter)
       val errors = snapshot.values.filterIsInstance<JobStatus.Failure>().sortedBy { it.jobName }
@@ -33,7 +38,7 @@ suspend fun jobStatusSnapshotConsoleLogger(
           } + "\n  "
         }
       println(
-        "$ts\n  Running: [$running]\n  Success: [$success]\n  Failed:  [$failed]\n  $errorMessages"
+        "$ts\n  Running: [$running]\n  Success: $success\n  Failed:  $failedCount\n  $errorMessages"
       )
     }
   }
