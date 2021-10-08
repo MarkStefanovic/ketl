@@ -36,7 +36,7 @@ class ExposedResultRepository : ResultRepository {
   }
 
   override fun getLatestResultsForJob(jobName: String, n: Int): List<JobResult> =
-    JobResultTable //
+    JobResultTable
       .select { JobResultTable.jobName eq jobName }
       .orderBy(JobResultTable.start, SortOrder.DESC)
       .limit(n)
@@ -62,7 +62,7 @@ private fun jobResultRowToDomain(row: ResultRow) =
       jobName = row[JobResultTable.jobName],
       start = row[JobResultTable.start],
       end = row[JobResultTable.end],
-      reason = row[JobResultTable.skippedReason] ?: "No skipped reason was provided.",
+      reason = row[JobResultTable.skippedReason] ?: "No reason was provided.",
     )
   } else {
     JobResult.Success(

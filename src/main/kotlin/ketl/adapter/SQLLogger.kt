@@ -6,10 +6,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withTimeout
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
@@ -22,7 +22,7 @@ suspend fun sqlLogger(
   messages: SharedFlow<LogMessage>,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
   timeout: Duration = Duration.seconds(10),
-) = supervisorScope {
+) = coroutineScope {
   launch(dispatcher) {
     messages.collect { msg ->
       try {

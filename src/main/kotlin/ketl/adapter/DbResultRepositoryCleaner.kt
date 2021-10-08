@@ -6,9 +6,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withTimeout
 import java.time.LocalDateTime
 import kotlin.time.Duration
@@ -24,7 +24,7 @@ suspend fun exposedResultRepositoryCleaner(
   durationToKeep: Duration = Duration.days(3),
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
   timeout: Duration = Duration.minutes(15),
-) = supervisorScope {
+) = coroutineScope {
   launch(dispatcher) {
     while (true) {
       log.info("Cleaning up the job results log...")
