@@ -1,6 +1,6 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-val exposedVersion = "0.33.1"
+val exposedVersion = "0.35.1"
 val koinVersion = "3.1.2"
 
 plugins {
@@ -18,7 +18,7 @@ repositories {
 dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test:1.5.21")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1-native-mt")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2-native-mt")
 
     implementation("org.jetbrains.exposed:exposed-core:$exposedVersion")
     implementation("org.jetbrains.exposed:exposed-java-time:$exposedVersion")

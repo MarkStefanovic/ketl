@@ -8,7 +8,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withTimeout
 import java.time.LocalDateTime
 import kotlin.coroutines.cancellation.CancellationException
@@ -54,7 +53,7 @@ private suspend fun runJob(
   job: Job<*>,
   results: JobResults,
   status: JobStatuses,
-) = supervisorScope {
+) = coroutineScope {
   log.debug("Starting ${job.name}...")
 
   val start = LocalDateTime.now()
@@ -87,35 +86,40 @@ private suspend fun runJob(
       }
     }
   } catch (_: TimeoutCancellationException) {
-    val result =
-      JobResult.Failure(
-        jobName = job.name,
-        start = start,
-        end = LocalDateTime.now(),
-        errorMessage = "Job timed out after ${job.timeout.inWholeSeconds} seconds.",
-      )
+    val result = JobResult.Failure(
+      jobName = job.name,
+      start = start,
+      end = LocalDateTime.now(),
+      errorMessage = "Job timed out after ${job.timeout.inWholeSeconds} seconds.",
+    )
     results.add(result)
   } catch (e: Exception) {
-    if (e is CancellationException) {
-      log.info("${job.name} cancelled")
-      val result =
-        JobResult.Cancelled(
+    when (e) {
+      is CancellationException -> {
+        log.info("${job.name} cancelled")
+        val result = JobResult.Cancelled(
           jobName = job.name,
           start = start,
           end = LocalDateTime.now(),
         )
-      results.add(result)
-      status.cancel(jobName = job.name)
-    } else {
-      val result =
-        JobResult.Failure(
+        results.add(result)
+        status.cancel(jobName = job.name)
+        throw e
+      }
+      is OutOfMemoryError -> {
+        println("Ran out of memory while running ${job.name}.")
+        throw e
+      }
+      else -> {
+        val result = JobResult.Failure(
           jobName = job.name,
           start = start,
           end = LocalDateTime.now(),
           errorMessage = e.stackTraceToString(),
         )
-      results.add(result)
-      status.failure(jobName = job.name, errorMessage = result.errorMessage)
+        results.add(result)
+        status.failure(jobName = job.name, errorMessage = result.errorMessage)
+      }
     }
   }
 }
@@ -126,49 +130,32 @@ suspend fun runWithRetry(
   start: LocalDateTime,
   retries: Int,
 ): JobResult =
-  try {
-    when (val status = job.run()) {
-      is Status.Failure -> {
-        if (retries >= job.retries) {
-          JobResult.Failure(
-            jobName = job.name,
-            start = start,
-            end = LocalDateTime.now(),
-            errorMessage = status.errorMessage,
-          )
-        } else {
-          runWithRetry(
-            job = job,
-            start = start,
-            retries = retries + 1,
-          )
-        }
+  when (val status = job.run()) {
+    is Status.Failure -> {
+      if (retries >= job.retries) {
+        JobResult.Failure(
+          jobName = job.name,
+          start = start,
+          end = LocalDateTime.now(),
+          errorMessage = status.errorMessage,
+        )
+      } else {
+        runWithRetry(
+          job = job,
+          start = start,
+          retries = retries + 1,
+        )
       }
-      is Status.Skipped -> JobResult.Skipped(
-        jobName = job.name,
-        start = start,
-        end = LocalDateTime.now(),
-        reason = status.reason,
-      )
-      Status.Success -> JobResult.Success(
-        jobName = job.name,
-        start = start,
-        end = LocalDateTime.now(),
-      )
     }
-  } catch (e: Exception) {
-    if (retries >= job.retries) {
-      JobResult.Failure(
-        jobName = job.name,
-        start = start,
-        end = LocalDateTime.now(),
-        errorMessage = e.stackTraceToString(),
-      )
-    } else {
-      runWithRetry(
-        job = job,
-        start = start,
-        retries = retries + 1,
-      )
-    }
+    is Status.Skipped -> JobResult.Skipped(
+      jobName = job.name,
+      start = start,
+      end = LocalDateTime.now(),
+      reason = status.reason,
+    )
+    Status.Success -> JobResult.Success(
+      jobName = job.name,
+      start = start,
+      end = LocalDateTime.now(),
+    )
   }

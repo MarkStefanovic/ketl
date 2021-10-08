@@ -26,7 +26,6 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 import kotlin.time.Duration
@@ -163,7 +162,7 @@ private suspend fun startServices(
 @DelicateCoroutinesApi
 @InternalCoroutinesApi
 @ExperimentalTime
-suspend fun run(
+suspend fun start(
   log: LogMessages,
   jobs: List<Job<*>>,
   maxSimultaneousJobs: Int,
@@ -194,38 +193,5 @@ suspend fun run(
       dispatcher = dispatcher,
       maxSimultaneousJobs = maxSimultaneousJobs,
     )
-  }
-}
-
-@DelicateCoroutinesApi
-@InternalCoroutinesApi
-@ExperimentalTime
-suspend fun start(
-  log: LogMessages,
-  jobs: List<Job<*>>,
-  maxSimultaneousJobs: Int,
-  ds: HikariDataSource = sqliteDatasource(),
-  logJobMessagesToConsole: Boolean = true,
-  logStatusChangesToConsole: Boolean = true,
-  minLogLevel: LogLevel = LogLevel.Info,
-  dispatcher: CoroutineDispatcher = Dispatchers.Default,
-) = coroutineScope {
-  while (true) {
-    try {
-      run(
-        log = log,
-        jobs = jobs,
-        maxSimultaneousJobs = maxSimultaneousJobs,
-        ds = ds,
-        logJobMessagesToConsole = logJobMessagesToConsole,
-        logStatusChangesToConsole = logStatusChangesToConsole,
-        minLogLevel = minLogLevel,
-        dispatcher = dispatcher,
-      )
-      ensureActive()
-    } catch (e: Exception) {
-      e.printStackTrace()
-      println("Restarting...")
-    }
   }
 }
