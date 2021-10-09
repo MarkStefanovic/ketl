@@ -27,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import java.io.File
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
@@ -192,5 +193,24 @@ suspend fun start(
       dispatcher = dispatcher,
       maxSimultaneousJobs = maxSimultaneousJobs,
     )
+  }
+}
+
+private fun runJarFile(jarPath: File, jvmArgs: List<String> = emptyList()) {
+//  val javaHome = System.getProperty("java.home")
+//  val javaBin = javaHome + File.separator + "bin" + File.separator + "java"
+  val cmd = arrayListOf("java", "-jar", jarPath.path, *jvmArgs.toTypedArray())
+  ProcessBuilder(cmd)
+    .directory(File(jarPath.parent))
+    .redirectOutput(ProcessBuilder.Redirect.INHERIT)
+    .redirectError(ProcessBuilder.Redirect.INHERIT)
+    .start()
+    .waitFor()
+}
+
+fun restartOnCrash(jarPath: File, jvmArgs: List<String> = emptyList()) {
+  while (true) {
+    runJarFile(jarPath = jarPath, jvmArgs = jvmArgs)
+    println("Process crashed.  Restarting...")
   }
 }
