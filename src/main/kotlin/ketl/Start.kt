@@ -27,7 +27,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.supervisorScope
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
@@ -171,7 +170,7 @@ suspend fun start(
   logStatusChangesToConsole: Boolean = true,
   minLogLevel: LogLevel = LogLevel.Info,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
-) = supervisorScope {
+) = coroutineScope {
   if (logJobMessagesToConsole) {
     println("Starting console logger...")
     launch(dispatcher) {
