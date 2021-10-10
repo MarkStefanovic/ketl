@@ -1,13 +1,10 @@
 package ketl.domain
 
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import java.time.LocalDateTime
 import kotlin.coroutines.cancellation.CancellationException
@@ -20,28 +17,22 @@ suspend fun jobRunner(
   queue: SharedFlow<Job<*>>,
   status: JobStatuses,
   results: JobResults,
-  dispatcher: CoroutineDispatcher = Dispatchers.Default,
-) = coroutineScope {
-  launch(dispatcher) {
-    queue.collect { job ->
-      launch {
-        try {
-          runJob(
-            log = log,
-            job = job,
-            results = results,
-            status = status,
-          )
-        } catch (e: Exception) {
-          if (e is CancellationException) {
-            log.info("jobRunner cancelled.")
-            throw e
-          } else {
-            log.error(e.stackTraceToString())
-            throw e
-          }
-        }
+) {
+  queue.collect { job ->
+    try {
+      runJob(
+        log = log,
+        job = job,
+        results = results,
+        status = status,
+      )
+    } catch (e: Exception) {
+      if (e is CancellationException) {
+        println("jobRunner cancelled.")
+      } else {
+        e.printStackTrace()
       }
+      throw e
     }
   }
 }
@@ -104,10 +95,6 @@ private suspend fun runJob(
         )
         results.add(result)
         status.cancel(jobName = job.name)
-        throw e
-      }
-      is OutOfMemoryError -> {
-        println("Ran out of memory while running ${job.name}.")
         throw e
       }
       else -> {
