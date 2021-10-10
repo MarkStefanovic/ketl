@@ -21,13 +21,16 @@ import ketl.domain.jobRunner
 import ketl.domain.jobScheduler
 import ketl.domain.jobStatusLogger
 import ketl.domain.jobStatusSnapshotConsoleLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.InternalCoroutinesApi
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.io.File
+import kotlin.system.exitProcess
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
@@ -50,69 +53,53 @@ private suspend fun startServices(
   val logRepository = DbLogRepository()
 
   log.info("Starting log repository cleaner...")
-  launch {
+  launch(dispatcher) {
     exposedLogRepositoryCleaner(
       db = db,
       repository = logRepository,
       log = log,
       timeBetweenCleanup = Duration.hours(1),
       durationToKeep = Duration.days(3),
-      dispatcher = dispatcher,
     )
   }
 
   log.info("Starting SQL logging...")
-  launch {
+  launch(dispatcher) {
     sqlLogger(
       db = db,
       repository = logRepository,
       messages = log.stream,
-      dispatcher = dispatcher,
     )
   }
 
   val statusRepository = DbJobStatusRepository()
 
   log.info("Starting JobStatuses...")
-  val statuses =
-    JobStatuses(
-      scope = this,
-      jobs = jobs,
-      dispatcher = dispatcher,
-    )
+  val statuses = JobStatuses()
 
   log.info("Starting console logger...")
   if (logStatusToConsole) {
-    launch {
+    launch(dispatcher) {
       jobStatusLogger(
-        log = log,
         db = db,
         repository = statusRepository,
         status = statuses.stream,
-        dispatcher = dispatcher,
       )
     }
   }
 
   log.info("Starting job status console logger...")
-  launch {
-    jobStatusSnapshotConsoleLogger(
-      statuses = statuses,
-      dispatcher = dispatcher,
-    )
-  }
-
+  launch(dispatcher) { jobStatusSnapshotConsoleLogger(statuses = statuses) }
   val resultRepository = ExposedResultRepository()
 
   log.info("Starting result repository cleaner...")
-  launch {
+  launch(dispatcher) {
     exposedResultRepositoryCleaner(
       db = db,
       repository = resultRepository,
       log = log,
       timeBetweenCleanup = Duration.hours(1),
       durationToKeep = Duration.days(3),
-      dispatcher = dispatcher,
     )
   }
 
@@ -120,39 +107,35 @@ private suspend fun startServices(
   val results = JobResults(db = db)
 
   log.info("Starting job result logger...")
-  launch {
+  launch(dispatcher) {
     jobResultLogger(
       db = db,
       results = results.stream,
       repository = resultRepository,
-      log = log,
-      dispatcher = dispatcher,
     )
   }
 
   val jobQueue = JobQueue()
 
   log.info("Starting job scheduler...")
-  launch {
+  launch(dispatcher) {
     jobScheduler(
       queue = jobQueue,
       jobs = jobs,
       status = statuses,
       maxSimultaneousJobs = maxSimultaneousJobs,
       scanFrequency = Duration.seconds(10),
-      dispatcher = dispatcher,
       results = results,
     )
   }
 
   log.info("Starting JobRunner...")
-  launch {
+  launch(dispatcher) {
     jobRunner(
       log = log,
       queue = jobQueue.stream,
       results = results,
       status = statuses,
-      dispatcher = dispatcher,
     )
   }
 
@@ -173,18 +156,14 @@ suspend fun start(
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) = coroutineScope {
   if (logJobMessagesToConsole) {
-    println("Starting console logger...")
     launch(dispatcher) {
-      consoleLogger(
-        messages = log.stream,
-        minLogLevel = minLogLevel,
-        dispatcher = dispatcher,
-      )
+      println("Starting console logger...")
+      consoleLogger(messages = log.stream, minLogLevel = minLogLevel)
     }
   }
 
   log.info("Starting services...")
-  launch(dispatcher) {
+  val job = launch(dispatcher) {
     startServices(
       db = SingleThreadedDb(ds),
       log = log,
@@ -194,12 +173,20 @@ suspend fun start(
       maxSimultaneousJobs = maxSimultaneousJobs,
     )
   }
+
+  job.invokeOnCompletion {
+    it?.printStackTrace()
+    dispatcher.cancelChildren(it as? CancellationException)
+    exitProcess(1)
+  }
+
+  job
 }
 
-private fun runJarFile(jarPath: File, jvmArgs: List<String> = emptyList()) {
-//  val javaHome = System.getProperty("java.home")
-//  val javaBin = javaHome + File.separator + "bin" + File.separator + "java"
-  val cmd = arrayListOf("java", "-jar", jarPath.path, *jvmArgs.toTypedArray())
+private fun runJar(jarPath: File, jvmArgs: List<String> = emptyList()) {
+  val javaHome = System.getProperty("java.home")
+  val javaPath = javaHome + File.separator + "bin" + File.separator + "java"
+  val cmd = arrayListOf(javaPath, "-jar", jarPath.path, *jvmArgs.toTypedArray())
   ProcessBuilder(cmd)
     .directory(File(jarPath.parent))
     .redirectOutput(ProcessBuilder.Redirect.INHERIT)
@@ -208,9 +195,9 @@ private fun runJarFile(jarPath: File, jvmArgs: List<String> = emptyList()) {
     .waitFor()
 }
 
-fun restartOnCrash(jarPath: File, jvmArgs: List<String> = emptyList()) {
+fun restartJarOnCrash(jarPath: File, jvmArgs: List<String> = emptyList()) {
   while (true) {
-    runJarFile(jarPath = jarPath, jvmArgs = jvmArgs)
+    runJar(jarPath = jarPath, jvmArgs = jvmArgs)
     println("Process crashed.  Restarting...")
   }
 }
