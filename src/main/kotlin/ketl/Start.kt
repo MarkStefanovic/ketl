@@ -195,9 +195,15 @@ private fun runJar(jarPath: File, jvmArgs: List<String> = emptyList()) {
     .waitFor()
 }
 
-fun restartJarOnCrash(jarPath: File, jvmArgs: List<String> = emptyList()) {
+@ExperimentalTime
+fun restartJarOnCrash(
+  jarPath: File,
+  jvmArgs: List<String> = emptyList(),
+  timeBetweenRestarts: Duration = Duration.seconds(10),
+) {
   while (true) {
     runJar(jarPath = jarPath, jvmArgs = jvmArgs)
-    println("Process crashed.  Restarting...")
+    println("Process crashed.  Waiting $timeBetweenRestarts and then restarting...")
+    Thread.sleep(timeBetweenRestarts.inWholeMilliseconds)
   }
 }
