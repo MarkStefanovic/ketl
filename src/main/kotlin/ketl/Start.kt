@@ -1,6 +1,7 @@
+@file:Suppress("unused")
+
 package ketl
 
-import com.zaxxer.hikari.HikariDataSource
 import ketl.adapter.Db
 import ketl.adapter.DbJobStatusRepository
 import ketl.adapter.DbLogRepository
@@ -10,6 +11,7 @@ import ketl.adapter.exposedLogRepositoryCleaner
 import ketl.adapter.exposedResultRepositoryCleaner
 import ketl.adapter.sqlLogger
 import ketl.domain.Job
+import ketl.domain.JobContext
 import ketl.domain.JobQueue
 import ketl.domain.JobResults
 import ketl.domain.JobStatuses
@@ -136,25 +138,29 @@ private suspend fun startServices(
       queue = jobQueue.stream,
       results = results,
       status = statuses,
+      dispatcher = dispatcher,
     )
   }
 
   log.info("ketl services launched.")
 }
 
+@Suppress("BlockingMethodInNonBlockingContext")
 @DelicateCoroutinesApi
 @InternalCoroutinesApi
 @ExperimentalTime
-suspend fun start(
-  log: LogMessages,
-  jobs: List<Job<*>>,
+suspend fun <Ctx : JobContext> start(
+  createContext: (log: LogMessages) -> Ctx,
+  createJobs: (ctx: Ctx) -> List<Job<*>>,
   maxSimultaneousJobs: Int,
-  ds: HikariDataSource = sqliteDatasource(),
   logJobMessagesToConsole: Boolean = true,
   logStatusChangesToConsole: Boolean = true,
   minLogLevel: LogLevel = LogLevel.Info,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
+  etlDbPath: String = "./etl.db",
 ) = coroutineScope {
+  val log = LogMessages("ketl")
+
   if (logJobMessagesToConsole) {
     launch(dispatcher) {
       println("Starting console logger...")
@@ -162,25 +168,70 @@ suspend fun start(
     }
   }
 
-  log.info("Starting services...")
-  val job = launch(dispatcher) {
-    startServices(
-      db = SingleThreadedDb(ds),
-      log = log,
-      jobs = jobs,
-      logStatusToConsole = logStatusChangesToConsole,
-      dispatcher = dispatcher,
-      maxSimultaneousJobs = maxSimultaneousJobs,
-    )
-  }
+  val ctx = createContext(log)
+  try {
+    val jobs = try {
+      createJobs(ctx)
+    } catch (e: Throwable) {
+      println("An error occurred while creating jobs: ${e.stackTraceToString()}")
+      throw e
+    }
 
-  job.invokeOnCompletion {
-    it?.printStackTrace()
-    dispatcher.cancelChildren(it as? CancellationException)
-    exitProcess(1)
-  }
+    val ds = sqliteDatasource(etlDbPath)
+    val job = try {
+      log.info("Starting services...")
+      launch(dispatcher) {
+        startServices(
+          db = SingleThreadedDb(ds),
+          log = log,
+          jobs = jobs,
+          logStatusToConsole = logStatusChangesToConsole,
+          dispatcher = dispatcher,
+          maxSimultaneousJobs = maxSimultaneousJobs,
+        )
+      }
+    } catch (e: Throwable) {
+      ds.close()
+      println("Closed connection to ETL database.")
+      throw e
+    }
 
-  job
+    job.invokeOnCompletion {
+      it?.printStackTrace()
+
+      try {
+        dispatcher.cancelChildren(it as? CancellationException)
+        println("Children cancelled.")
+      } catch (e: Throwable) {
+        println("An exception occurred while closing child processes: ${e.stackTraceToString()}")
+      }
+
+      try {
+        ds.close()
+        println("Closed connection to ETL database.")
+      } catch (e: Throwable) {
+        println("An error occurred while closing the ETL datasource: ${e.stackTraceToString()}")
+      }
+
+      try {
+        ctx.close()
+        println("Closed job context.")
+      } catch (e: Throwable) {
+        println("An error occurred while closing the enclosing job context: ${e.stackTraceToString()}")
+      } finally {
+        exitProcess(1)
+      }
+    }
+
+    job
+  } catch (e: Throwable) {
+    try {
+      ctx.close()
+    } catch (e2: Throwable) {
+      println("An error occurred while closing the job context: ${e2.stackTraceToString()}")
+    }
+    throw e
+  }
 }
 
 private fun runJar(jarPath: File, jvmArgs: List<String> = emptyList()) {

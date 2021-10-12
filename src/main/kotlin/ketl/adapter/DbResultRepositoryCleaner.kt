@@ -5,8 +5,10 @@ import ketl.domain.ResultRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withTimeout
 import java.time.LocalDateTime
+import kotlin.coroutines.coroutineContext
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
@@ -20,7 +22,7 @@ suspend fun exposedResultRepositoryCleaner(
   durationToKeep: Duration = Duration.days(3),
   timeout: Duration = Duration.minutes(15),
 ) {
-  while (true) {
+  while (coroutineContext.isActive) {
     log.info("Cleaning up the job results log...")
     val cutoff = LocalDateTime.now().minusSeconds(durationToKeep.inWholeSeconds)
     try {

@@ -2,8 +2,11 @@ package ketl.domain
 
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.yield
 import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.coroutineContext
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
@@ -15,11 +18,11 @@ suspend fun jobScheduler(
   queue: JobQueue,
   results: JobResults,
   maxSimultaneousJobs: Int,
-  scanFrequency: Duration = Duration.seconds(10),
+  scanFrequency: Duration = Duration.seconds(1),
 ) {
   val queueTimes: ConcurrentHashMap<String, LocalDateTime> = ConcurrentHashMap()
 
-  while (true) {
+  while (coroutineContext.isActive) {
     var jobsToAdd = maxSimultaneousJobs - status.runningJobCount()
     if (jobsToAdd > 0) {
       jobs.sortedBy { queueTimes[it.name] ?: LocalDateTime.MIN }.forEach { job ->
@@ -39,6 +42,7 @@ suspend fun jobScheduler(
             queue.add(job)
           }
         }
+        yield()
       }
     }
     delay(scanFrequency.inWholeMilliseconds)
