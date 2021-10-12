@@ -16,7 +16,7 @@ import kotlin.time.ExperimentalTime
 @DelicateCoroutinesApi
 suspend fun jobRunner(
   log: LogMessages,
-  queue: SharedFlow<Job<*>>,
+  queue: SharedFlow<ETLJob<*>>,
   status: JobStatuses,
   results: JobResults,
   dispatcher: CoroutineDispatcher,
@@ -46,7 +46,7 @@ suspend fun jobRunner(
 @ExperimentalTime
 private suspend fun runJob(
   log: LogMessages,
-  job: Job<*>,
+  job: ETLJob<*>,
   results: JobResults,
   status: JobStatuses,
 ) = coroutineScope {
@@ -118,7 +118,7 @@ private suspend fun runJob(
 
 @ExperimentalTime
 suspend fun runWithRetry(
-  job: Job<*>,
+  job: ETLJob<*>,
   start: LocalDateTime,
   retries: Int,
 ): JobResult =

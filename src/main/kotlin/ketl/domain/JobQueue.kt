@@ -8,7 +8,7 @@ import kotlin.time.ExperimentalTime
 @ExperimentalTime
 class JobQueue {
   private val _stream =
-    MutableSharedFlow<Job<*>>(
+    MutableSharedFlow<ETLJob<*>>(
       replay = 0,
       extraBufferCapacity = 1000,
       onBufferOverflow = BufferOverflow.SUSPEND,
@@ -16,7 +16,7 @@ class JobQueue {
 
   val stream = _stream.asSharedFlow()
 
-  suspend fun add(job: Job<*>) {
+  suspend fun add(job: ETLJob<*>) {
     _stream.emit(job)
   }
 }

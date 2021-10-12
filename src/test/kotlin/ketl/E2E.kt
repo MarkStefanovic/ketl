@@ -1,6 +1,6 @@
 package ketl
 
-import ketl.domain.Job
+import ketl.domain.ETLJob
 import ketl.domain.JobContext
 import ketl.domain.Schedule
 import kotlinx.coroutines.delay
@@ -8,9 +8,9 @@ import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
-fun createJobs(context: JobContext): List<Job<*>> =
+fun createJobs(context: JobContext): List<ETLJob<*>> =
   listOf(
-    Job(
+    ETLJob(
       name = "job1",
       schedule =
       listOf(
@@ -25,7 +25,7 @@ fun createJobs(context: JobContext): List<Job<*>> =
       log.info("Job1 done sleeping")
       success()
     },
-    Job(
+    ETLJob(
       name = "job2",
       schedule =
       listOf(
@@ -39,7 +39,7 @@ fun createJobs(context: JobContext): List<Job<*>> =
       log.info("Job2 done sleeping")
       success()
     },
-    Job(
+    ETLJob(
       name = "job3",
       schedule =
       listOf(

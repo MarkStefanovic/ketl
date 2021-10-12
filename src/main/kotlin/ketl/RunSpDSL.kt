@@ -1,7 +1,7 @@
 package ketl
 
 import com.zaxxer.hikari.HikariDataSource
-import ketl.domain.Job
+import ketl.domain.ETLJob
 import ketl.domain.JobContext
 import ketl.domain.Schedule
 import java.time.LocalDate
@@ -26,7 +26,7 @@ fun <Ctx : JobContext> Ctx.execPgSp(
   timeout: Duration = Duration.seconds(3600),
   retries: Int = 0,
   init: SpSQL.Builder.() -> Unit = {},
-): Job<Ctx> =
+): ETLJob<Ctx> =
   execSp(
     ds = ds,
     schemaName = schemaName,
@@ -50,7 +50,7 @@ private fun <Ctx : JobContext> Ctx.execSp(
   retries: Int,
   dependencies: Set<String>,
   init: SpSQL.Builder.() -> Unit,
-): Job<Ctx> {
+): ETLJob<Ctx> {
   val jobName = "$schemaName.$spName"
   val sql =
     SpSQL.Builder(
@@ -61,7 +61,7 @@ private fun <Ctx : JobContext> Ctx.execSp(
       .apply(init)
       .build()
       .sql
-  return Job(
+  return ETLJob(
     name = jobName,
     schedule = schedule,
     timeout = timeout,

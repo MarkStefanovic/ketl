@@ -10,7 +10,7 @@ import ketl.adapter.SingleThreadedDb
 import ketl.adapter.exposedLogRepositoryCleaner
 import ketl.adapter.exposedResultRepositoryCleaner
 import ketl.adapter.sqlLogger
-import ketl.domain.Job
+import ketl.domain.ETLJob
 import ketl.domain.JobContext
 import ketl.domain.JobQueue
 import ketl.domain.JobResults
@@ -42,7 +42,7 @@ import kotlin.time.ExperimentalTime
 private suspend fun startServices(
   db: Db,
   log: LogMessages,
-  jobs: List<Job<*>>,
+  jobs: List<ETLJob<*>>,
   logStatusToConsole: Boolean,
   maxSimultaneousJobs: Int,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
@@ -151,7 +151,7 @@ private suspend fun startServices(
 @ExperimentalTime
 suspend fun <Ctx : JobContext> start(
   createContext: (log: LogMessages) -> Ctx,
-  createJobs: (ctx: Ctx) -> List<Job<*>>,
+  createJobs: (ctx: Ctx) -> List<ETLJob<*>>,
   maxSimultaneousJobs: Int,
   logJobMessagesToConsole: Boolean = true,
   logStatusChangesToConsole: Boolean = true,

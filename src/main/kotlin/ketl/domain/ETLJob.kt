@@ -6,7 +6,7 @@ import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
-data class Job<Ctx : JobContext>(
+data class ETLJob<Ctx : JobContext>(
   val name: String,
   val schedule: List<Schedule>,
   val timeout: Duration = Duration.days(9999),

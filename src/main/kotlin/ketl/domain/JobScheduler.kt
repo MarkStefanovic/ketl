@@ -13,7 +13,7 @@ import kotlin.time.ExperimentalTime
 @ExperimentalTime
 @DelicateCoroutinesApi
 suspend fun jobScheduler(
-  jobs: List<Job<*>>,
+  jobs: List<ETLJob<*>>,
   status: JobStatuses,
   queue: JobQueue,
   results: JobResults,
