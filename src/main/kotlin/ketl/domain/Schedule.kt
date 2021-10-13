@@ -7,6 +7,7 @@ import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
 data class Schedule(
+  val displayName: String,
   val frequency: Duration,
   val window: ExecutionWindow = ExecutionWindow.ANYTIME,
   val startDateTime: LocalDateTime = LocalDateTime.MIN,

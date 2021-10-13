@@ -15,7 +15,6 @@ data class ETLJob<Ctx : JobContext>(
   val ctx: Ctx,
   val onRun: suspend Ctx.(log: ETLLog) -> Status,
 ) {
-
   init {
     require(name.isNotBlank()) { "name cannot be blank." }
     require(schedule.isNotEmpty()) { "At least 1 schedule must be provided." }
@@ -33,6 +32,27 @@ data class ETLJob<Ctx : JobContext>(
       )
     }
 
-  @ExperimentalTime
-  suspend fun run(log: ETLLog) = coroutineScope { with(ctx) { onRun(log) } }
+  @ExperimentalTime suspend fun run(log: ETLLog) = coroutineScope { with(ctx) { onRun(log) } }
+
+  override fun toString(): String {
+    val scheduleCSV = if (schedule.isEmpty()) {
+      "[]"
+    } else {
+      schedule.map { "[\"${it.displayName}\"]" }.toSortedSet().joinToString(", ")
+    }
+    val dependenciesCSV = if (dependencies.isEmpty()) {
+      "[]"
+    } else {
+      dependencies.toSortedSet().joinToString(", ") { "[\"$it\"]" }
+    }
+    return """
+      |ETLJob [
+      |  name: $name
+      |  schedule: $scheduleCSV
+      |  timeout: $timeout
+      |  retries: $retries
+      |  dependencies: $dependenciesCSV
+      |]
+    """.trimMargin()
+  }
 }

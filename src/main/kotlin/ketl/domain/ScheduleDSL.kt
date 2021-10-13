@@ -9,10 +9,12 @@ import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
 fun daily(
+  displayName: String,
   startDateTime: LocalDateTime = LocalDateTime.MIN,
   init: DaySchedule.Builder.() -> Unit = {},
 ) =
   DaySchedule.Builder(
+    displayName = displayName,
     startDateTime = startDateTime,
     startWeekday = DayOfWeek.MONDAY,
     endWeekday = DayOfWeek.SUNDAY,
@@ -23,11 +25,13 @@ fun daily(
 
 @ExperimentalTime
 fun every(
+  displayName: String,
   frequency: Duration,
   startDateTime: LocalDateTime = LocalDateTime.MIN,
 ): List<Schedule> =
   listOf(
     Schedule(
+      displayName = displayName,
       frequency = frequency,
       window = ExecutionWindow.ANYTIME,
       startDateTime = startDateTime,
@@ -36,14 +40,21 @@ fun every(
 
 @ExperimentalTime
 fun weekly(
+  displayName: String,
   startDateTime: LocalDateTime = LocalDateTime.MIN,
   init: WeekSchedule.Builder.() -> Unit = {},
-): List<Schedule> = WeekSchedule.Builder(startDateTime).apply(init).build().schedule
+): List<Schedule> = WeekSchedule.Builder(
+  displayName = displayName,
+  startDateTime = startDateTime
+).apply(init).build().schedule
 
 @ExperimentalTime
 data class WeekSchedule(val schedule: List<Schedule>) {
   @ScheduleDSL
-  class Builder(private val startDateTime: LocalDateTime) {
+  class Builder(
+    private val displayName: String,
+    private val startDateTime: LocalDateTime,
+  ) {
     private val sched = mutableListOf<Schedule>()
 
     fun build() = WeekSchedule(sched)
@@ -58,6 +69,7 @@ data class WeekSchedule(val schedule: List<Schedule>) {
       }
       sched.addAll(
         DaySchedule.Builder(
+          displayName = displayName,
           startDateTime = startDateTime,
           startWeekday = start,
           endWeekday = end,
@@ -74,6 +86,7 @@ data class WeekSchedule(val schedule: List<Schedule>) {
 data class DaySchedule(val schedule: List<Schedule>) {
   @ScheduleDSL
   class Builder(
+    private val displayName: String,
     private val startDateTime: LocalDateTime,
     private val startWeekday: DayOfWeek,
     private val endWeekday: DayOfWeek,
@@ -90,6 +103,7 @@ data class DaySchedule(val schedule: List<Schedule>) {
         )
       sched.add(
         Schedule(
+          displayName = displayName,
           frequency = frequency,
           window = win,
           startDateTime = startDateTime,
@@ -107,6 +121,7 @@ data class DaySchedule(val schedule: List<Schedule>) {
       }
       sched.addAll(
         Every.Builder(
+          displayName = displayName,
           startDateTime = startDateTime,
           startWeekday = startWeekday,
           endWeekday = endWeekday,
@@ -125,6 +140,7 @@ data class DaySchedule(val schedule: List<Schedule>) {
 data class Every(val schedule: List<Schedule>) {
   @ScheduleDSL
   class Builder(
+    private val displayName: String,
     private val startDateTime: LocalDateTime,
     private val startWeekday: DayOfWeek,
     private val endWeekday: DayOfWeek,
@@ -150,6 +166,7 @@ data class Every(val schedule: List<Schedule>) {
         )
       sched.add(
         Schedule(
+          displayName = displayName,
           frequency = frequency,
           window = win,
           startDateTime = startDateTime,

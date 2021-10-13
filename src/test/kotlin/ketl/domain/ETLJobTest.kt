@@ -3,10 +3,19 @@ package ketl.domain
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import java.time.LocalDate
+import kotlin.test.assertEquals
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
-class DummyContext(log: LogMessages) : JobContext(log) {
+private const val expectedToStringResult = """ETLJob [
+  name: Test Job
+  schedule: ["test schedule"]
+  timeout: 10s
+  retries: 0
+  dependencies: []
+]"""
+
+class DummyContext : JobContext() {
   override fun close() {}
 }
 
@@ -15,16 +24,14 @@ class DummyContext(log: LogMessages) : JobContext(log) {
 class ETLJobTest {
   @Test
   fun isReady_happy_path() {
-    val log = LogMessages("test")
-
     val job = ETLJob(
       name = "Test Job",
       schedule = listOf(
-        Schedule(Duration.seconds(10)),
+        Schedule(displayName = "test schedule", frequency = Duration.seconds(10)),
       ),
       timeout = Duration.seconds(10),
       retries = 0,
-      ctx = DummyContext(log),
+      ctx = DummyContext(),
     ) {
       success()
     }
@@ -33,5 +40,21 @@ class ETLJobTest {
       lastRun = null,
     )
     assert(isReady)
+  }
+
+  @Test
+  fun toString_happy_path() {
+    val job = ETLJob(
+      name = "Test Job",
+      schedule = listOf(
+        Schedule(displayName = "test schedule", frequency = Duration.seconds(10)),
+      ),
+      timeout = Duration.seconds(10),
+      retries = 0,
+      ctx = DummyContext(),
+    ) {
+      success()
+    }
+    assertEquals(expected = expectedToStringResult, actual = job.toString())
   }
 }

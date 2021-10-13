@@ -14,13 +14,13 @@ fun createJobs(context: JobContext): List<ETLJob<*>> =
       name = "job1",
       schedule =
       listOf(
-        Schedule(frequency = Duration.seconds(10)),
-        Schedule(frequency = Duration.seconds(25)),
+        Schedule(displayName = "job1 schedule A", frequency = Duration.seconds(10)),
+        Schedule(displayName = "job1 schedule B", frequency = Duration.seconds(25)),
       ),
       timeout = Duration.seconds(60),
       retries = 0,
       ctx = context,
-    ) {
+    ) { log ->
       delay(5000)
       log.info("Job1 done sleeping")
       success()
@@ -29,12 +29,12 @@ fun createJobs(context: JobContext): List<ETLJob<*>> =
       name = "job2",
       schedule =
       listOf(
-        Schedule(frequency = Duration.seconds(7)),
+        Schedule(displayName = "job2 schedule", frequency = Duration.seconds(7)),
       ),
       timeout = Duration.seconds(60),
       retries = 0,
       ctx = context,
-    ) {
+    ) { log ->
       delay(10000)
       log.info("Job2 done sleeping")
       success()
@@ -43,7 +43,7 @@ fun createJobs(context: JobContext): List<ETLJob<*>> =
       name = "job3",
       schedule =
       listOf(
-        Schedule(frequency = Duration.seconds(11)),
+        Schedule(displayName = "job3 schedule", frequency = Duration.seconds(11)),
       ),
       timeout = Duration.seconds(60),
       retries = 0,
