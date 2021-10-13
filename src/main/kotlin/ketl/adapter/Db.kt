@@ -70,7 +70,7 @@ class SingleThreadedDb(private val ds: HikariDataSource) : Db() {
 //  }
 }
 
-object LogTable : Table("log") {
+object LogTable : Table("ketl_log") {
   val id = integer("id").autoIncrement()
   val name = text("name")
   val level = enumerationByName("level", 20, LogLevel::class)
@@ -80,7 +80,7 @@ object LogTable : Table("log") {
   override val primaryKey = PrimaryKey(id, name = "pk_log_id")
 }
 
-object JobResultTable : Table("result") {
+object JobResultTable : Table("ketl_result") {
   val id = integer("result").autoIncrement("seq_result_id")
   val jobName = text("job_name")
   val start = datetime("start")
@@ -99,7 +99,7 @@ object JobResultTable : Table("result") {
   }
 }
 
-object JobStatusTable : Table("status") {
+object JobStatusTable : Table("ketl_status") {
   val jobName = text("job_name")
   val status = enumerationByName("status", length = 20, JobStatusName::class)
   val ts = datetime("ts")

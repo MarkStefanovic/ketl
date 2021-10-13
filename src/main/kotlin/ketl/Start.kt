@@ -2,6 +2,7 @@
 
 package ketl
 
+import com.zaxxer.hikari.HikariDataSource
 import ketl.adapter.Db
 import ketl.adapter.DbJobStatusRepository
 import ketl.adapter.DbLogRepository
@@ -152,12 +153,12 @@ private suspend fun startServices(
 suspend fun <Ctx : JobContext> start(
   createContext: (log: LogMessages) -> Ctx,
   createJobs: (ctx: Ctx) -> List<ETLJob<*>>,
-  maxSimultaneousJobs: Int,
+  createDatasource: () -> HikariDataSource = { sqliteDatasource("./etl.db") },
+  maxSimultaneousJobs: Int = 10,
   logJobMessagesToConsole: Boolean = true,
   logStatusChangesToConsole: Boolean = true,
   minLogLevel: LogLevel = LogLevel.Info,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
-  etlDbPath: String = "./etl.db",
 ) = coroutineScope {
   val log = LogMessages("ketl")
 
@@ -170,31 +171,33 @@ suspend fun <Ctx : JobContext> start(
 
   val ctx = createContext(log)
   try {
-    val jobs = try {
-      createJobs(ctx)
-    } catch (e: Throwable) {
-      println("An error occurred while creating jobs: ${e.stackTraceToString()}")
-      throw e
-    }
-
-    val ds = sqliteDatasource(etlDbPath)
-    val job = try {
-      log.info("Starting services...")
-      launch(dispatcher) {
-        startServices(
-          db = SingleThreadedDb(ds),
-          log = log,
-          jobs = jobs,
-          logStatusToConsole = logStatusChangesToConsole,
-          dispatcher = dispatcher,
-          maxSimultaneousJobs = maxSimultaneousJobs,
-        )
+    val jobs =
+      try {
+        createJobs(ctx)
+      } catch (e: Throwable) {
+        println("An error occurred while creating jobs: ${e.stackTraceToString()}")
+        throw e
       }
-    } catch (e: Throwable) {
-      ds.close()
-      println("Closed connection to ETL database.")
-      throw e
-    }
+
+    val ds = createDatasource()
+    val job =
+      try {
+        log.info("Starting services...")
+        launch(dispatcher) {
+          startServices(
+            db = SingleThreadedDb(ds),
+            log = log,
+            jobs = jobs,
+            logStatusToConsole = logStatusChangesToConsole,
+            dispatcher = dispatcher,
+            maxSimultaneousJobs = maxSimultaneousJobs,
+          )
+        }
+      } catch (e: Throwable) {
+        ds.close()
+        println("Closed connection to ETL database.")
+        throw e
+      }
 
     job.invokeOnCompletion {
       it?.printStackTrace()
@@ -217,7 +220,9 @@ suspend fun <Ctx : JobContext> start(
         ctx.close()
         println("Closed job context.")
       } catch (e: Throwable) {
-        println("An error occurred while closing the enclosing job context: ${e.stackTraceToString()}")
+        println(
+          "An error occurred while closing the enclosing job context: ${e.stackTraceToString()}"
+        )
       } finally {
         exitProcess(1)
       }
