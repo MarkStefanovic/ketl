@@ -17,7 +17,8 @@ import ketl.domain.JobQueue
 import ketl.domain.JobResults
 import ketl.domain.JobStatuses
 import ketl.domain.LogLevel
-import ketl.domain.LogMessages
+import ketl.domain.RootLog
+import ketl.domain.SharedLog
 import ketl.domain.consoleLogger
 import ketl.domain.jobResultLogger
 import ketl.domain.jobRunner
@@ -42,31 +43,32 @@ import kotlin.time.ExperimentalTime
 @ExperimentalTime
 private suspend fun startServices(
   db: Db,
-  log: LogMessages,
+  log: SharedLog,
+  rootLog: RootLog,
   jobs: List<ETLJob<*>>,
   logStatusToConsole: Boolean,
   maxSimultaneousJobs: Int,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) = coroutineScope {
-  log.info("Starting ketl services...")
+  rootLog.info("Starting ketl services...")
 
-  log.info("Checking if ETL tables exist...")
+  rootLog.info("Checking if ETL tables exist...")
   db.createTables().join()
 
   val logRepository = DbLogRepository()
 
-  log.info("Starting log repository cleaner...")
+  rootLog.info("Starting log repository cleaner...")
   launch(dispatcher) {
     exposedLogRepositoryCleaner(
       db = db,
       repository = logRepository,
-      log = log,
+      log = rootLog,
       timeBetweenCleanup = Duration.hours(1),
       durationToKeep = Duration.days(3),
     )
   }
 
-  log.info("Starting SQL logging...")
+  rootLog.info("Starting SQL logging...")
   launch(dispatcher) {
     sqlLogger(
       db = db,
@@ -77,10 +79,10 @@ private suspend fun startServices(
 
   val statusRepository = DbJobStatusRepository()
 
-  log.info("Starting JobStatuses...")
+  rootLog.info("Starting JobStatuses...")
   val statuses = JobStatuses()
 
-  log.info("Starting console logger...")
+  rootLog.info("Starting console logger...")
   if (logStatusToConsole) {
     launch(dispatcher) {
       jobStatusLogger(
@@ -91,25 +93,25 @@ private suspend fun startServices(
     }
   }
 
-  log.info("Starting job status console logger...")
+  rootLog.info("Starting job status console logger...")
   launch(dispatcher) { jobStatusSnapshotConsoleLogger(statuses = statuses) }
   val resultRepository = ExposedResultRepository()
 
-  log.info("Starting result repository cleaner...")
+  rootLog.info("Starting result repository cleaner...")
   launch(dispatcher) {
     exposedResultRepositoryCleaner(
       db = db,
       repository = resultRepository,
-      log = log,
+      log = rootLog,
       timeBetweenCleanup = Duration.hours(1),
       durationToKeep = Duration.days(3),
     )
   }
 
-  log.info("Starting JobResults...")
+  rootLog.info("Starting JobResults...")
   val results = JobResults(db = db)
 
-  log.info("Starting job result logger...")
+  rootLog.info("Starting job result logger...")
   launch(dispatcher) {
     jobResultLogger(
       db = db,
@@ -120,7 +122,7 @@ private suspend fun startServices(
 
   val jobQueue = JobQueue()
 
-  log.info("Starting job scheduler...")
+  rootLog.info("Starting job scheduler...")
   launch(dispatcher) {
     jobScheduler(
       queue = jobQueue,
@@ -132,7 +134,7 @@ private suspend fun startServices(
     )
   }
 
-  log.info("Starting JobRunner...")
+  rootLog.info("Starting JobRunner...")
   launch(dispatcher) {
     jobRunner(
       log = log,
@@ -143,7 +145,7 @@ private suspend fun startServices(
     )
   }
 
-  log.info("ketl services launched.")
+  rootLog.info("ketl services launched.")
 }
 
 @Suppress("BlockingMethodInNonBlockingContext")
@@ -151,7 +153,7 @@ private suspend fun startServices(
 @InternalCoroutinesApi
 @ExperimentalTime
 suspend fun <Ctx : JobContext> start(
-  createContext: (log: LogMessages) -> Ctx,
+  createContext: () -> Ctx,
   createJobs: (ctx: Ctx) -> List<ETLJob<*>>,
   createDatasource: () -> HikariDataSource = { sqliteDatasource("./etl.db") },
   maxSimultaneousJobs: Int = 10,
@@ -160,7 +162,9 @@ suspend fun <Ctx : JobContext> start(
   minLogLevel: LogLevel = LogLevel.Info,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) = coroutineScope {
-  val log = LogMessages("ketl")
+  val log = SharedLog()
+
+  val rootLog = RootLog(log)
 
   if (logJobMessagesToConsole) {
     launch(dispatcher) {
@@ -169,7 +173,7 @@ suspend fun <Ctx : JobContext> start(
     }
   }
 
-  val ctx = createContext(log)
+  val ctx = createContext()
   try {
     val jobs =
       try {
@@ -182,11 +186,12 @@ suspend fun <Ctx : JobContext> start(
     val ds = createDatasource()
     val job =
       try {
-        log.info("Starting services...")
+        rootLog.info("Starting services...")
         launch(dispatcher) {
           startServices(
             db = SingleThreadedDb(ds),
             log = log,
+            rootLog = rootLog,
             jobs = jobs,
             logStatusToConsole = logStatusChangesToConsole,
             dispatcher = dispatcher,

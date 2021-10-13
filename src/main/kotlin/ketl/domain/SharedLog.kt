@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-class LogMessages(private val name: String) {
+class SharedLog {
   private val _stream =
     MutableSharedFlow<LogMessage>(
       onBufferOverflow = BufferOverflow.DROP_OLDEST,
@@ -15,7 +15,7 @@ class LogMessages(private val name: String) {
 
   val stream = _stream.asSharedFlow()
 
-  suspend fun debug(message: String) {
+  suspend fun debug(name: String, message: String) {
     _stream.emit(
       LogMessage(
         loggerName = name,
@@ -26,7 +26,7 @@ class LogMessages(private val name: String) {
     )
   }
 
-  suspend fun error(message: String) {
+  suspend fun error(name: String, message: String) {
     _stream.emit(
       LogMessage(
         loggerName = name,
@@ -37,7 +37,7 @@ class LogMessages(private val name: String) {
     )
   }
 
-  suspend fun info(message: String) {
+  suspend fun info(name: String, message: String) {
     _stream.emit(
       LogMessage(
         loggerName = name,
@@ -48,7 +48,7 @@ class LogMessages(private val name: String) {
     )
   }
 
-  suspend fun warning(message: String) {
+  suspend fun warning(name: String, message: String) {
     _stream.emit(
       LogMessage(
         loggerName = name,

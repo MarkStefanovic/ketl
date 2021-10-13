@@ -68,7 +68,7 @@ private fun <Ctx : JobContext> Ctx.execSp(
     retries = retries,
     dependencies = dependencies,
     ctx = this,
-    onRun = {
+    onRun = { log ->
       log.info("Executing '$sql'.")
       ds.connection.use { con ->
         con.createStatement().use { stmt ->

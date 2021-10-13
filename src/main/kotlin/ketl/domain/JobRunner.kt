@@ -15,7 +15,7 @@ import kotlin.time.ExperimentalTime
 @ExperimentalTime
 @DelicateCoroutinesApi
 suspend fun jobRunner(
-  log: LogMessages,
+  log: SharedLog,
   queue: SharedFlow<ETLJob<*>>,
   status: JobStatuses,
   results: JobResults,
@@ -23,9 +23,10 @@ suspend fun jobRunner(
 ) = coroutineScope {
   queue.collect { job ->
     try {
+      val jobLog = JobLog(jobName = job.name, log = log)
       launch(dispatcher) {
         runJob(
-          log = log,
+          log = jobLog,
           job = job,
           results = results,
           status = status,
@@ -45,7 +46,7 @@ suspend fun jobRunner(
 @DelicateCoroutinesApi
 @ExperimentalTime
 private suspend fun runJob(
-  log: LogMessages,
+  log: ETLLog,
   job: ETLJob<*>,
   results: JobResults,
   status: JobStatuses,
@@ -61,6 +62,7 @@ private suspend fun runJob(
       val result =
         runWithRetry(
           job = job,
+          log = log,
           start = start,
           retries = 0,
         )
@@ -119,10 +121,11 @@ private suspend fun runJob(
 @ExperimentalTime
 suspend fun runWithRetry(
   job: ETLJob<*>,
+  log: ETLLog,
   start: LocalDateTime,
   retries: Int,
 ): JobResult =
-  when (val status = job.run()) {
+  when (val status = job.run(log)) {
     is Status.Failure -> {
       if (retries >= job.retries) {
         JobResult.Failure(
@@ -134,6 +137,7 @@ suspend fun runWithRetry(
       } else {
         runWithRetry(
           job = job,
+          log = log,
           start = start,
           retries = retries + 1,
         )

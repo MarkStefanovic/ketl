@@ -13,7 +13,7 @@ data class ETLJob<Ctx : JobContext>(
   val retries: Int = 0,
   val dependencies: Set<String> = setOf(),
   val ctx: Ctx,
-  val onRun: suspend Ctx.() -> Status,
+  val onRun: suspend Ctx.(log: ETLLog) -> Status,
 ) {
 
   init {
@@ -34,5 +34,5 @@ data class ETLJob<Ctx : JobContext>(
     }
 
   @ExperimentalTime
-  suspend fun run() = coroutineScope { with(ctx) { onRun() } }
+  suspend fun run(log: ETLLog) = coroutineScope { with(ctx) { onRun(log) } }
 }
