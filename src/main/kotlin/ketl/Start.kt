@@ -7,7 +7,7 @@ import ketl.adapter.Db
 import ketl.adapter.DbJobStatusRepository
 import ketl.adapter.DbLogRepository
 import ketl.adapter.ExposedResultRepository
-import ketl.adapter.SingleThreadedDb
+import ketl.adapter.SQLDb
 import ketl.adapter.exposedLogRepositoryCleaner
 import ketl.adapter.exposedResultRepositoryCleaner
 import ketl.adapter.sqlLogger
@@ -53,7 +53,7 @@ private suspend fun startServices(
   rootLog.info("Starting ketl services...")
 
   rootLog.info("Checking if ETL tables exist...")
-  db.createTables().join()
+  db.createTables()
 
   val logRepository = DbLogRepository()
 
@@ -189,7 +189,7 @@ suspend fun <Ctx : JobContext> start(
         rootLog.info("Starting services...")
         launch(dispatcher) {
           startServices(
-            db = SingleThreadedDb(ds),
+            db = SQLDb(ds),
             log = log,
             rootLog = rootLog,
             jobs = jobs,

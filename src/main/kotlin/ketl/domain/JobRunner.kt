@@ -84,33 +84,36 @@ private suspend fun runJob(
       }
     }
   } catch (_: TimeoutCancellationException) {
-    val result = JobResult.Failure(
-      jobName = job.name,
-      start = start,
-      end = LocalDateTime.now(),
-      errorMessage = "Job timed out after ${job.timeout.inWholeSeconds} seconds.",
-    )
+    val result =
+      JobResult.Failure(
+        jobName = job.name,
+        start = start,
+        end = LocalDateTime.now(),
+        errorMessage = "Job timed out after ${job.timeout.inWholeSeconds} seconds.",
+      )
     results.add(result)
   } catch (e: Exception) {
     when (e) {
       is CancellationException -> {
         log.info("${job.name} cancelled")
-        val result = JobResult.Cancelled(
-          jobName = job.name,
-          start = start,
-          end = LocalDateTime.now(),
-        )
+        val result =
+          JobResult.Cancelled(
+            jobName = job.name,
+            start = start,
+            end = LocalDateTime.now(),
+          )
         results.add(result)
         status.cancel(jobName = job.name)
         throw e
       }
       else -> {
-        val result = JobResult.Failure(
-          jobName = job.name,
-          start = start,
-          end = LocalDateTime.now(),
-          errorMessage = e.stackTraceToString(),
-        )
+        val result =
+          JobResult.Failure(
+            jobName = job.name,
+            start = start,
+            end = LocalDateTime.now(),
+            errorMessage = e.stackTraceToString(),
+          )
         results.add(result)
         status.failure(jobName = job.name, errorMessage = result.errorMessage)
       }
@@ -125,33 +128,54 @@ suspend fun runWithRetry(
   start: LocalDateTime,
   retries: Int,
 ): JobResult =
-  when (val status = job.run(log)) {
-    is Status.Failure -> {
-      if (retries >= job.retries) {
-        JobResult.Failure(
+  try {
+    when (val status = job.run(log)) {
+      is Status.Failure -> {
+        if (retries >= job.retries) {
+          JobResult.Failure(
+            jobName = job.name,
+            start = start,
+            end = LocalDateTime.now(),
+            errorMessage = status.errorMessage,
+          )
+        } else {
+          runWithRetry(
+            job = job,
+            log = log,
+            start = start,
+            retries = retries + 1,
+          )
+        }
+      }
+      is Status.Skipped ->
+        JobResult.Skipped(
           jobName = job.name,
           start = start,
           end = LocalDateTime.now(),
-          errorMessage = status.errorMessage,
+          reason = status.reason,
         )
-      } else {
-        runWithRetry(
-          job = job,
-          log = log,
+      Status.Success ->
+        JobResult.Success(
+          jobName = job.name,
           start = start,
-          retries = retries + 1,
+          end = LocalDateTime.now(),
         )
-      }
     }
-    is Status.Skipped -> JobResult.Skipped(
-      jobName = job.name,
-      start = start,
-      end = LocalDateTime.now(),
-      reason = status.reason,
-    )
-    Status.Success -> JobResult.Success(
-      jobName = job.name,
-      start = start,
-      end = LocalDateTime.now(),
-    )
+  } catch (e: Throwable) {
+    if (retries + 1 >= job.retries) {
+      JobResult.Failure(
+        jobName = job.name,
+        start = start,
+        end = LocalDateTime.now(),
+        errorMessage = e.stackTraceToString(),
+      )
+    } else {
+      log.info("${job.name} threw an exception, running retry ${retries + 1} of ${job.retries}...")
+      runWithRetry(
+        job = job,
+        log = log,
+        start = start,
+        retries = retries + 1,
+      )
+    }
   }

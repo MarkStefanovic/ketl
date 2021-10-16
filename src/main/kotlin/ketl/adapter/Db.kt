@@ -3,12 +3,6 @@ package ketl.adapter
 import com.zaxxer.hikari.HikariDataSource
 import ketl.domain.JobStatusName
 import ketl.domain.LogLevel
-import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.Table
@@ -16,58 +10,36 @@ import org.jetbrains.exposed.sql.Transaction
 import org.jetbrains.exposed.sql.javatime.CurrentDateTime
 import org.jetbrains.exposed.sql.javatime.datetime
 import org.jetbrains.exposed.sql.transactions.transaction
-import java.util.concurrent.Executors
 
 abstract class Db {
-  abstract suspend fun exec(statement: Transaction.() -> Unit): Job
+  abstract fun exec(statement: Transaction.() -> Unit)
 
   abstract fun <R> fetch(statement: Transaction.() -> R): R
 
-  abstract suspend fun <R> fetchAsync(statement: Transaction.() -> R): Deferred<R>
-
-  abstract suspend fun createTables(): Job
+  abstract fun createTables()
 }
 
-class SingleThreadedDb(private val ds: HikariDataSource) : Db() {
-  private val dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
-
-  private val db: Database
-    get() = Database.connect(ds)
+class SQLDb(private val ds: HikariDataSource) : Db() {
+  private val db: Database by lazy {
+    Database.connect(ds)
+  }
 
   override fun <R> fetch(statement: Transaction.() -> R): R =
     transaction(db = db) {
       statement()
     }
 
-  override suspend fun <R> fetchAsync(statement: Transaction.() -> R): Deferred<R> = coroutineScope {
-    async(dispatcher) {
-      transaction(db = db) {
-        statement()
-      }
+  override fun exec(statement: Transaction.() -> Unit) {
+    transaction(db = db) {
+      statement()
     }
   }
 
-  override suspend fun exec(statement: Transaction.() -> Unit) = coroutineScope {
-    launch(dispatcher) {
-      transaction(db = db) {
-        statement()
-      }
+  override fun createTables() {
+    transaction(db = db) {
+      SchemaUtils.create(LogTable, JobResultTable, JobStatusTable)
     }
   }
-
-  override suspend fun createTables() = coroutineScope {
-    launch(dispatcher) {
-      transaction(db = db) {
-        SchemaUtils.create(LogTable, JobResultTable, JobStatusTable)
-      }
-    }
-  }
-
-//  suspend fun execSQL(sql: String) = coroutineScope {
-//    launch(dispatcher) {
-//      transaction(db = db) { exec(sql) }
-//    }
-//  }
 }
 
 object LogTable : Table("ketl_log") {
