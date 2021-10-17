@@ -19,7 +19,7 @@ suspend fun exposedLogRepositoryCleaner(
   log: ETLLog,
   repository: LogRepository,
   timeBetweenCleanup: Duration = Duration.minutes(30),
-  durationToKeep: Duration = Duration.days(3),
+  durationToKeep: Duration = Duration.days(7),
   timeout: Duration = Duration.minutes(15),
 ) {
   while (coroutineContext.isActive) {

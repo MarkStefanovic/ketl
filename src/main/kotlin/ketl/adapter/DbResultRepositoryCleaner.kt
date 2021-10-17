@@ -19,7 +19,7 @@ suspend fun exposedResultRepositoryCleaner(
   log: ETLLog,
   repository: ResultRepository,
   timeBetweenCleanup: Duration = Duration.minutes(30),
-  durationToKeep: Duration = Duration.days(3),
+  durationToKeep: Duration = Duration.days(7),
   timeout: Duration = Duration.minutes(15),
 ) {
   while (coroutineContext.isActive) {

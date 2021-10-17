@@ -48,6 +48,7 @@ private suspend fun startServices(
   jobs: List<ETLJob<*>>,
   logStatusToConsole: Boolean,
   maxSimultaneousJobs: Int,
+  logCutoff: Duration,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) = coroutineScope {
   rootLog.info("Starting ketl services...")
@@ -64,7 +65,7 @@ private suspend fun startServices(
       repository = logRepository,
       log = rootLog,
       timeBetweenCleanup = Duration.hours(1),
-      durationToKeep = Duration.days(3),
+      durationToKeep = logCutoff,
     )
   }
 
@@ -104,7 +105,7 @@ private suspend fun startServices(
       repository = resultRepository,
       log = rootLog,
       timeBetweenCleanup = Duration.hours(1),
-      durationToKeep = Duration.days(3),
+      durationToKeep = logCutoff,
     )
   }
 
@@ -161,6 +162,7 @@ suspend fun <Ctx : JobContext> start(
   logStatusChangesToConsole: Boolean = true,
   minLogLevel: LogLevel = LogLevel.Info,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
+  logCutoff: Duration = Duration.days(7),
 ) = coroutineScope {
   val log = SharedLog()
 
@@ -196,6 +198,7 @@ suspend fun <Ctx : JobContext> start(
             logStatusToConsole = logStatusChangesToConsole,
             dispatcher = dispatcher,
             maxSimultaneousJobs = maxSimultaneousJobs,
+            logCutoff = logCutoff,
           )
         }
       } catch (e: Throwable) {
