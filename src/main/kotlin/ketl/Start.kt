@@ -158,7 +158,7 @@ private suspend fun <Ctx : JobContext> startServices(
 suspend fun <Ctx : JobContext> start(
   createContext: () -> Ctx,
   createJobs: (Ctx) -> List<ETLJob<Ctx>>,
-  createDatasource: () -> HikariDataSource = { sqliteDatasource() },
+  etlDatasource: (Ctx) -> HikariDataSource = { sqliteDatasource() },
   maxSimultaneousJobs: Int = 10,
   logJobMessagesToConsole: Boolean = true,
   logStatusChangesToConsole: Boolean = true,
@@ -179,7 +179,7 @@ suspend fun <Ctx : JobContext> start(
 
   val ctx = createContext()
   try {
-    val ds = createDatasource()
+    val ds = etlDatasource(ctx)
     val job =
       try {
         rootLog.info("Starting services...")
