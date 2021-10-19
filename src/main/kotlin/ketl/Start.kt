@@ -41,11 +41,12 @@ import kotlin.time.ExperimentalTime
 @DelicateCoroutinesApi
 @InternalCoroutinesApi
 @ExperimentalTime
-private suspend fun startServices(
+private suspend fun <Ctx : JobContext> startServices(
   db: Db,
   log: SharedLog,
   rootLog: RootLog,
-  jobs: List<ETLJob<*>>,
+  context: Ctx,
+  createJobs: (Ctx) -> List<ETLJob<Ctx>>,
   logStatusToConsole: Boolean,
   maxSimultaneousJobs: Int,
   logCutoff: Duration,
@@ -126,8 +127,9 @@ private suspend fun startServices(
   rootLog.info("Starting job scheduler...")
   launch(dispatcher) {
     jobScheduler(
+      context = context,
       queue = jobQueue,
-      jobs = jobs,
+      createJobs = createJobs,
       status = statuses,
       maxSimultaneousJobs = maxSimultaneousJobs,
       scanFrequency = Duration.seconds(10),
@@ -155,8 +157,8 @@ private suspend fun startServices(
 @ExperimentalTime
 suspend fun <Ctx : JobContext> start(
   createContext: () -> Ctx,
-  createJobs: (ctx: Ctx) -> List<ETLJob<*>>,
-  createDatasource: () -> HikariDataSource = { sqliteDatasource("./etl.db") },
+  createJobs: (Ctx) -> List<ETLJob<Ctx>>,
+  createDatasource: () -> HikariDataSource = { sqliteDatasource() },
   maxSimultaneousJobs: Int = 10,
   logJobMessagesToConsole: Boolean = true,
   logStatusChangesToConsole: Boolean = true,
@@ -177,14 +179,6 @@ suspend fun <Ctx : JobContext> start(
 
   val ctx = createContext()
   try {
-    val jobs =
-      try {
-        createJobs(ctx)
-      } catch (e: Throwable) {
-        println("An error occurred while creating jobs: ${e.stackTraceToString()}")
-        throw e
-      }
-
     val ds = createDatasource()
     val job =
       try {
@@ -194,7 +188,8 @@ suspend fun <Ctx : JobContext> start(
             db = SQLDb(ds),
             log = log,
             rootLog = rootLog,
-            jobs = jobs,
+            context = ctx,
+            createJobs = createJobs,
             logStatusToConsole = logStatusChangesToConsole,
             dispatcher = dispatcher,
             maxSimultaneousJobs = maxSimultaneousJobs,
