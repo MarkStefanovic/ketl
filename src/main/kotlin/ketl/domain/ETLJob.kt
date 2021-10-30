@@ -1,14 +1,13 @@
 package ketl.domain
 
 import kotlinx.coroutines.coroutineScope
-import java.time.LocalDateTime
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
 data class ETLJob<Ctx : JobContext>(
   val name: String,
-  val schedule: List<Schedule>,
+  val schedule: Schedule,
   val timeout: Duration = Duration.days(9999),
   val retries: Int = 0,
   val dependencies: Set<String> = setOf(),
@@ -17,29 +16,13 @@ data class ETLJob<Ctx : JobContext>(
 ) {
   init {
     require(name.isNotBlank()) { "name cannot be blank." }
-    require(schedule.isNotEmpty()) { "At least 1 schedule must be provided." }
+    require(schedule.parts.isNotEmpty()) { "At least 1 schedule must be provided." }
     require(retries >= 0) { "Timeout seconds must be >= 0." }
   }
-
-  fun isReady(
-    refTime: LocalDateTime,
-    lastRun: LocalDateTime?,
-  ): Boolean =
-    schedule.any { schedule ->
-      schedule.ready(
-        refTime = refTime,
-        lastRun = lastRun,
-      )
-    }
 
   @ExperimentalTime suspend fun run(log: ETLLog) = coroutineScope { with(ctx) { onRun(log) } }
 
   override fun toString(): String {
-    val scheduleCSV = if (schedule.isEmpty()) {
-      "[]"
-    } else {
-      schedule.map { "[\"${it.displayName}\"]" }.toSortedSet().joinToString(", ")
-    }
     val dependenciesCSV = if (dependencies.isEmpty()) {
       "[]"
     } else {
@@ -48,7 +31,7 @@ data class ETLJob<Ctx : JobContext>(
     return """
       |ETLJob [
       |  name: $name
-      |  schedule: $scheduleCSV
+      |  schedule: ${schedule.displayName}
       |  timeout: $timeout
       |  retries: $retries
       |  dependencies: $dependenciesCSV

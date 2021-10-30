@@ -8,18 +8,19 @@ import kotlin.time.ExperimentalTime
 @ExperimentalTime
 data class Schedule(
   val displayName: String,
-  val frequency: Duration,
-  val window: ExecutionWindow = ExecutionWindow.ANYTIME,
-  val startDateTime: LocalDateTime = LocalDateTime.MIN,
+  val parts: Set<SchedulePart>,
 ) {
-  fun ready(refTime: LocalDateTime, lastRun: LocalDateTime?): Boolean =
-    window.inWindow(refTime) &&
-      durationHasElapsed(
-        duration = frequency,
-        lastRun = lastRun,
-        startDateTime = startDateTime,
-        refDateTime = refTime,
-      )
+  fun ready(refTime: LocalDateTime, lastRun: LocalDateTime?) =
+    parts.any { part ->
+      part.ready(refTime = refTime, lastRun = lastRun)
+    }
+
+  override fun toString() = """
+    |Schedule [
+    |  displayName: $displayName
+    |  parts: ...
+    |]
+  """.trimMargin()
 }
 
 @ExperimentalTime

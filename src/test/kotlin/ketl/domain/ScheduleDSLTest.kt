@@ -23,22 +23,26 @@ class ScheduleDSLTest {
       expected = listOf(
         Schedule(
           displayName = "test schedule",
-          frequency = Duration.minutes(5),
-          window = ExecutionWindow(
-            startMonth = Month.JANUARY,
-            endMonth = Month.DECEMBER,
-            startMonthday = 1,
-            endMonthday = 31,
-            startWeekday = DayOfWeek.MONDAY,
-            endWeekday = DayOfWeek.SUNDAY,
-            startHour = 0,
-            endHour = 12,
-            startMinute = 0,
-            endMinute = 59,
-            startSecond = 0,
-            endSecond = 59
+          parts = setOf(
+            SchedulePart(
+              frequency = Duration.minutes(5),
+              window = ExecutionWindow(
+                startMonth = Month.JANUARY,
+                endMonth = Month.DECEMBER,
+                startMonthday = 1,
+                endMonthday = 31,
+                startWeekday = DayOfWeek.MONDAY,
+                endWeekday = DayOfWeek.SUNDAY,
+                startHour = 0,
+                endHour = 12,
+                startMinute = 0,
+                endMinute = 59,
+                startSecond = 0,
+                endSecond = 59
+              ),
+              startDateTime = LocalDateTime.MIN,
+            )
           ),
-          startDateTime = LocalDateTime.MIN
         ),
       ),
       actual = sched,
@@ -61,42 +65,50 @@ class ScheduleDSLTest {
       expected = listOf(
         Schedule(
           displayName = "test schedule",
-          frequency = Duration.minutes(5),
-          window = ExecutionWindow(
-            startMonth = Month.JANUARY,
-            endMonth = Month.DECEMBER,
-            startMonthday = 1,
-            endMonthday = 31,
-            startWeekday = DayOfWeek.MONDAY,
-            endWeekday = DayOfWeek.SATURDAY,
-            startHour = 0,
-            endHour = 12,
-            startMinute = 0,
-            endMinute = 59,
-            startSecond = 0,
-            endSecond = 59
+          parts = setOf(
+            SchedulePart(
+              frequency = Duration.minutes(5),
+              window = ExecutionWindow(
+                startMonth = Month.JANUARY,
+                endMonth = Month.DECEMBER,
+                startMonthday = 1,
+                endMonthday = 31,
+                startWeekday = DayOfWeek.MONDAY,
+                endWeekday = DayOfWeek.SATURDAY,
+                startHour = 0,
+                endHour = 12,
+                startMinute = 0,
+                endMinute = 59,
+                startSecond = 0,
+                endSecond = 59
+              ),
+              startDateTime = LocalDateTime.MIN,
+            )
           ),
-          startDateTime = LocalDateTime.MIN
         ),
         Schedule(
           displayName = "test schedule",
-          frequency = Duration.minutes(10),
-          window = ExecutionWindow(
-            startMonth = Month.JANUARY,
-            endMonth = Month.DECEMBER,
-            startMonthday = 1,
-            endMonthday = 31,
-            startWeekday = DayOfWeek.MONDAY,
-            endWeekday = DayOfWeek.SATURDAY,
-            startHour = 20,
-            endHour = 23,
-            startMinute = 0,
-            endMinute = 59,
-            startSecond = 0,
-            endSecond = 59
-          ),
-          startDateTime = LocalDateTime.MIN,
-        )
+          parts = setOf(
+            SchedulePart(
+              frequency = Duration.minutes(10),
+              window = ExecutionWindow(
+                startMonth = Month.JANUARY,
+                endMonth = Month.DECEMBER,
+                startMonthday = 1,
+                endMonthday = 31,
+                startWeekday = DayOfWeek.MONDAY,
+                endWeekday = DayOfWeek.SATURDAY,
+                startHour = 20,
+                endHour = 23,
+                startMinute = 0,
+                endMinute = 59,
+                startSecond = 0,
+                endSecond = 59
+              ),
+              startDateTime = LocalDateTime.MIN,
+            ),
+          )
+        ),
       ),
       actual = sched,
     )

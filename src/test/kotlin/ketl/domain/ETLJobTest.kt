@@ -9,7 +9,7 @@ import kotlin.time.ExperimentalTime
 
 private const val expectedToStringResult = """ETLJob [
   name: Test Job
-  schedule: ["test schedule"]
+  schedule: test schedule
   timeout: 10s
   retries: 0
   dependencies: []
@@ -26,16 +26,14 @@ class ETLJobTest {
   fun isReady_happy_path() {
     val job = ETLJob(
       name = "Test Job",
-      schedule = listOf(
-        Schedule(displayName = "test schedule", frequency = Duration.seconds(10)),
-      ),
+      schedule = every(displayName = "test schedule", frequency = Duration.seconds(10)),
       timeout = Duration.seconds(10),
       retries = 0,
       ctx = DummyContext(),
     ) {
       success()
     }
-    val isReady = job.isReady(
+    val isReady = job.schedule.ready(
       refTime = LocalDate.of(2021, 8, 14).atStartOfDay(),
       lastRun = null,
     )
@@ -46,9 +44,7 @@ class ETLJobTest {
   fun toString_happy_path() {
     val job = ETLJob(
       name = "Test Job",
-      schedule = listOf(
-        Schedule(displayName = "test schedule", frequency = Duration.seconds(10)),
-      ),
+      schedule = every(displayName = "test schedule", frequency = Duration.seconds(10)),
       timeout = Duration.seconds(10),
       retries = 0,
       ctx = DummyContext(),

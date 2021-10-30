@@ -28,14 +28,16 @@ fun every(
   displayName: String,
   frequency: Duration,
   startDateTime: LocalDateTime = LocalDateTime.MIN,
-): List<Schedule> =
-  listOf(
-    Schedule(
-      displayName = displayName,
-      frequency = frequency,
-      window = ExecutionWindow.ANYTIME,
-      startDateTime = startDateTime,
-    )
+): Schedule =
+  Schedule(
+    displayName = displayName,
+    parts = setOf(
+      SchedulePart(
+        frequency = frequency,
+        window = ExecutionWindow.ANYTIME,
+        startDateTime = startDateTime,
+      )
+    ),
   )
 
 @ExperimentalTime
@@ -104,9 +106,13 @@ data class DaySchedule(val schedule: List<Schedule>) {
       sched.add(
         Schedule(
           displayName = displayName,
-          frequency = frequency,
-          window = win,
-          startDateTime = startDateTime,
+          parts = setOf(
+            SchedulePart(
+              frequency = frequency,
+              window = win,
+              startDateTime = startDateTime,
+            ),
+          ),
         )
       )
     }
@@ -167,9 +173,13 @@ data class Every(val schedule: List<Schedule>) {
       sched.add(
         Schedule(
           displayName = displayName,
-          frequency = frequency,
-          window = win,
-          startDateTime = startDateTime,
+          parts = setOf(
+            SchedulePart(
+              frequency = frequency,
+              window = win,
+              startDateTime = startDateTime,
+            )
+          ),
         )
       )
     }

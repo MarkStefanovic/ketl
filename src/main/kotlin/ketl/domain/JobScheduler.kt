@@ -36,7 +36,7 @@ suspend fun <Ctx : JobContext> jobScheduler(
       if (jobs.isNotEmpty()) {
         jobs.sortedBy { queueTimes[it.name] ?: LocalDateTime.MIN }.forEach { job ->
           if (jobsToAdd > 0) {
-            val ready = job.isReady(
+            val ready = job.schedule.ready(
               lastRun = queueTimes[job.name],
               refTime = LocalDateTime.now(),
             )

@@ -11,7 +11,11 @@ import kotlin.time.ExperimentalTime
 class ScheduleTest {
   @Test
   fun ready_happy_path() {
-    val schedule = Schedule(displayName = "test schedule", frequency = Duration.seconds(10))
+    val schedule =
+      Schedule(
+        displayName = "test schedule",
+        parts = setOf(SchedulePart(frequency = Duration.seconds(10))),
+      )
     val isReady =
       schedule.ready(
         refTime = LocalDateTime.of(2010, 1, 1, 1, 1, 1),
