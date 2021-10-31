@@ -11,15 +11,15 @@ import org.jetbrains.exposed.sql.javatime.CurrentDateTime
 import org.jetbrains.exposed.sql.javatime.datetime
 import org.jetbrains.exposed.sql.transactions.transaction
 
-abstract class Db {
-  abstract fun exec(statement: Transaction.() -> Unit)
+interface Db {
+  fun exec(statement: Transaction.() -> Unit)
 
-  abstract fun <R> fetch(statement: Transaction.() -> R): R
+  fun <R> fetch(statement: Transaction.() -> R): R
 
-  abstract fun createTables()
+  fun createTables()
 }
 
-class SQLDb(private val ds: HikariDataSource) : Db() {
+class HikariDb(private val ds: HikariDataSource) : Db {
   private val db: Database by lazy {
     Database.connect(ds)
   }
@@ -49,7 +49,19 @@ object LogTable : Table("ketl_log") {
   val message = text("message")
   val ts = datetime("ts").defaultExpression(CurrentDateTime())
 
-  override val primaryKey = PrimaryKey(id, name = "pk_log_id")
+  override val primaryKey = PrimaryKey(id, name = "pk_ketl_log")
+
+  init {
+    index("ix_ketl_log_name", false, name)
+    index("ix_ketl_log_level", false, level)
+  }
+}
+
+object JobDepTable : Table("ketl_job_dep") {
+  val jobName = text("job_name")
+  val dependency = text("dependency")
+
+  override val primaryKey = PrimaryKey(jobName, dependency, name = "pk_ketl_job_dep")
 }
 
 object JobResultTable : Table("ketl_result") {
@@ -63,11 +75,11 @@ object JobResultTable : Table("ketl_result") {
   val errorMessage = text("error_message").nullable()
   val skippedReason = text("skipped_reason").nullable()
 
-  override val primaryKey = PrimaryKey(id, name = "pk_result_id")
+  override val primaryKey = PrimaryKey(id, name = "pk_ketl_result")
 
   init {
-    index("ix_result_job_name_ts", false, jobName, start)
-    index("ix_result_start_error_flag", false, start, failed)
+    index("ix_ketl_result_job_name_start", false, jobName, start)
+    index("ix_ketl_result_start_failed", false, start, failed)
   }
 }
 
@@ -77,9 +89,20 @@ object JobStatusTable : Table("ketl_status") {
   val ts = datetime("ts")
   val errorMessage = text("error_message").nullable()
 
-  override val primaryKey = PrimaryKey(jobName, name = "pk_status_job_name")
+  override val primaryKey = PrimaryKey(jobName, name = "pk_ketl_status")
 
   init {
-    index("ix_status_status", false, status)
+    index("ix_ketl_status_status", false, status)
   }
+}
+
+object JobSpecTable : Table("ketl_job_spec") {
+  val jobName = text("job_name")
+  val scheduleName = text("schedule_name")
+  val timeoutSeconds = long("timeout_seconds")
+  val retries = integer("retries")
+  val enabled = bool("enabled")
+  val dateAdded = datetime("date_added").defaultExpression(CurrentDateTime())
+
+  override val primaryKey = PrimaryKey(jobName, name = "pk_ketl_job_spec")
 }

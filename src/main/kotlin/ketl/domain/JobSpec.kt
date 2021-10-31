@@ -7,9 +7,10 @@ import kotlin.time.ExperimentalTime
 data class JobSpec(
   val jobName: String,
   val scheduleName: String,
-  val timeout: Duration = Duration.days(9999),
-  val retries: Int = 0,
-  val dependencies: Set<String> = setOf(),
+  val timeout: Duration,
+  val retries: Int,
+  val enabled: Boolean,
+  val dependencies: Set<String>,
 ) {
   override fun toString() = """
     |JobSpec [
@@ -17,6 +18,7 @@ data class JobSpec(
     |  scheduleName: $scheduleName
     |  timeout: $timeout
     |  retries: $retries
+    |  enabled: $enabled
     |  dependencies: $dependencies
     |]
   """.trimIndent()

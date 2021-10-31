@@ -4,13 +4,13 @@ package ketl
 
 import com.zaxxer.hikari.HikariDataSource
 import ketl.adapter.Db
-import ketl.adapter.DbJobStatusRepository
-import ketl.adapter.DbLogRepository
-import ketl.adapter.ExposedResultRepository
-import ketl.adapter.SQLDb
-import ketl.adapter.exposedLogRepositoryCleaner
-import ketl.adapter.exposedResultRepositoryCleaner
-import ketl.adapter.sqlLogger
+import ketl.adapter.DbJobStatusRepo
+import ketl.adapter.DbLogRepo
+import ketl.adapter.DbResultRepo
+import ketl.adapter.HikariDb
+import ketl.adapter.dbLogRepoCleaner
+import ketl.adapter.dbLogger
+import ketl.adapter.dbResultRepoCleaner
 import ketl.domain.ETLJob
 import ketl.domain.JobContext
 import ketl.domain.JobQueue
@@ -57,11 +57,11 @@ private suspend fun <Ctx : JobContext> startServices(
   rootLog.info("Checking if ETL tables exist...")
   db.createTables()
 
-  val logRepository = DbLogRepository()
+  val logRepository = DbLogRepo()
 
   rootLog.info("Starting log repository cleaner...")
   launch(dispatcher) {
-    exposedLogRepositoryCleaner(
+    dbLogRepoCleaner(
       db = db,
       repository = logRepository,
       log = rootLog,
@@ -72,14 +72,14 @@ private suspend fun <Ctx : JobContext> startServices(
 
   rootLog.info("Starting SQL logging...")
   launch(dispatcher) {
-    sqlLogger(
+    dbLogger(
       db = db,
       repository = logRepository,
       messages = log.stream,
     )
   }
 
-  val statusRepository = DbJobStatusRepository()
+  val statusRepository = DbJobStatusRepo()
 
   rootLog.info("Starting JobStatuses...")
   val statuses = JobStatuses()
@@ -97,11 +97,11 @@ private suspend fun <Ctx : JobContext> startServices(
 
   rootLog.info("Starting job status console logger...")
   launch(dispatcher) { jobStatusSnapshotConsoleLogger(statuses = statuses) }
-  val resultRepository = ExposedResultRepository()
+  val resultRepository = DbResultRepo()
 
   rootLog.info("Starting result repository cleaner...")
   launch(dispatcher) {
-    exposedResultRepositoryCleaner(
+    dbResultRepoCleaner(
       db = db,
       repository = resultRepository,
       log = rootLog,
@@ -185,7 +185,7 @@ suspend fun <Ctx : JobContext> start(
         rootLog.info("Starting services...")
         launch(dispatcher) {
           startServices(
-            db = SQLDb(ds),
+            db = HikariDb(ds),
             log = log,
             rootLog = rootLog,
             context = ctx,

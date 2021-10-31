@@ -1,7 +1,7 @@
 package ketl.domain
 
 import ketl.adapter.Db
-import ketl.adapter.ExposedResultRepository
+import ketl.adapter.DbResultRepo
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -11,7 +11,7 @@ import kotlin.time.ExperimentalTime
 @ExperimentalTime
 @DelicateCoroutinesApi
 class JobResults(private val db: Db) {
-  private val repo = ExposedResultRepository()
+  private val repo = DbResultRepo()
 
   private val _stream =
     MutableSharedFlow<JobResult>(

@@ -1,14 +1,8 @@
 package ketl
 
 import com.zaxxer.hikari.HikariDataSource
-import ketl.domain.ETLJob
-import ketl.domain.JobContext
-import ketl.domain.Schedule
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import kotlin.system.measureTimeMillis
-import kotlin.time.Duration
-import kotlin.time.ExperimentalTime
 
 @DslMarker annotation class RunSpDSL
 
@@ -16,42 +10,13 @@ enum class DbDialect {
   PostgreSQL,
 }
 
-@ExperimentalTime
-fun <Ctx : JobContext> Ctx.execPgSp(
-  ds: HikariDataSource,
-  schemaName: String,
-  spName: String,
-  schedule: Schedule,
-  dependencies: Set<String> = setOf(),
-  timeout: Duration = Duration.seconds(3600),
-  retries: Int = 0,
-  init: SpSQL.Builder.() -> Unit = {},
-): ETLJob<Ctx> =
-  execSp(
-    ds = ds,
-    schemaName = schemaName,
-    spName = spName,
-    dialect = DbDialect.PostgreSQL,
-    schedule = schedule,
-    dependencies = dependencies,
-    timeout = timeout,
-    retries = retries,
-    init = init,
-  )
-
-@ExperimentalTime
-private fun <Ctx : JobContext> Ctx.execSp(
+fun runSp(
   ds: HikariDataSource,
   schemaName: String,
   spName: String,
   dialect: DbDialect,
-  schedule: Schedule,
-  timeout: Duration,
-  retries: Int,
-  dependencies: Set<String>,
   init: SpSQL.Builder.() -> Unit,
-): ETLJob<Ctx> {
-  val jobName = "$schemaName.$spName"
+) {
   val sql =
     SpSQL.Builder(
       dialect = dialect,
@@ -61,28 +26,12 @@ private fun <Ctx : JobContext> Ctx.execSp(
       .apply(init)
       .build()
       .sql
-  return ETLJob(
-    name = jobName,
-    schedule = schedule,
-    timeout = timeout,
-    retries = retries,
-    dependencies = dependencies,
-    ctx = this,
-    onRun = { log ->
-      log.info("Executing '$sql'.")
-      ds.connection.use { con ->
-        con.createStatement().use { stmt ->
-          try {
-            val executionMillis = measureTimeMillis { stmt.execute(sql) }
-            log.info("Successfully ran '$sql.' in $executionMillis milliseconds.")
-          } catch (e: Exception) {
-            failure("An error occurred while running '$sql':\n  Error: ${e.message}")
-          }
-        }
-      }
-      success()
+
+  ds.connection.use { con ->
+    con.createStatement().use { stmt ->
+      stmt.execute(sql)
     }
-  )
+  }
 }
 
 data class SpSQL(val sql: String) {

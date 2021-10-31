@@ -2,7 +2,7 @@ package ketl.domain
 
 import java.time.LocalDateTime
 
-interface LogRepository {
+interface LogRepo {
   fun add(message: LogMessage)
 
   fun deleteBefore(ts: LocalDateTime)

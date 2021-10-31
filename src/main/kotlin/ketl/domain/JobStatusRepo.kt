@@ -1,5 +1,5 @@
 package ketl.domain
 
-interface JobStatusRepository {
+interface JobStatusRepo {
   fun upsert(status: JobStatus)
 }

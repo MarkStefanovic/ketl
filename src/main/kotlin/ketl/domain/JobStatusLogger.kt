@@ -13,7 +13,7 @@ import kotlin.time.ExperimentalTime
 @InternalCoroutinesApi
 suspend fun jobStatusLogger(
   db: Db,
-  repository: JobStatusRepository,
+  repository: JobStatusRepo,
   status: SharedFlow<JobStatus>,
 ) {
   status.collect { jobStatus ->

@@ -2,13 +2,13 @@ package ketl.adapter
 
 import ketl.domain.JobStatus
 import ketl.domain.JobStatusName
-import ketl.domain.JobStatusRepository
+import ketl.domain.JobStatusRepo
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.update
 import java.time.LocalDateTime
 
-class DbJobStatusRepository : JobStatusRepository {
+class DbJobStatusRepo : JobStatusRepo {
   override fun upsert(status: JobStatus) {
     val error = when (status) {
       is JobStatus.Cancelled -> null

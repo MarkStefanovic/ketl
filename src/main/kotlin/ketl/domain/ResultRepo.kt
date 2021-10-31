@@ -2,7 +2,7 @@ package ketl.domain
 
 import java.time.LocalDateTime
 
-interface ResultRepository {
+interface ResultRepo {
   fun add(result: JobResult)
 
   fun deleteBefore(ts: LocalDateTime)

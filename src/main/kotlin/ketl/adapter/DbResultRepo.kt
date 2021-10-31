@@ -1,7 +1,7 @@
 package ketl.adapter
 
 import ketl.domain.JobResult
-import ketl.domain.ResultRepository
+import ketl.domain.ResultRepo
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.deleteWhere
@@ -9,7 +9,7 @@ import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select
 import java.time.LocalDateTime
 
-class ExposedResultRepository : ResultRepository {
+class DbResultRepo : ResultRepo {
   override fun add(result: JobResult) {
     JobResultTable.insert {
       it[jobName] = result.jobName

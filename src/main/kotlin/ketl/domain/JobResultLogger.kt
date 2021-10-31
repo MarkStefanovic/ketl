@@ -10,7 +10,7 @@ import kotlin.coroutines.cancellation.CancellationException
 suspend fun jobResultLogger(
   db: Db,
   results: SharedFlow<JobResult>,
-  repository: ResultRepository,
+  repository: ResultRepo,
 ) {
   results.collect { result ->
     try {

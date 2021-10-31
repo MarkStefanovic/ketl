@@ -6,11 +6,22 @@ import kotlin.time.ExperimentalTime
 interface JobSpecRepo {
   fun add(jobSpec: JobSpec)
 
-  fun all(): Set<JobSpec>
+  fun delete(jobName: String)
 
-  fun get(): JobSpec
+  fun getActiveJobs(): Set<JobSpec>
+
+  fun get(jobName: String): JobSpec?
 
   fun update(jobSpec: JobSpec)
 
-  fun upsert(jobSpec: JobSpec)
+  fun upsert(jobSpec: JobSpec) {
+    val current = get(jobSpec.jobName)
+    if (current == null) {
+      add(jobSpec)
+    } else {
+      if (current != jobSpec) {
+        update(jobSpec)
+      }
+    }
+  }
 }

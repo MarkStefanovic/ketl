@@ -1,12 +1,12 @@
 package ketl.adapter
 
 import ketl.domain.LogMessage
-import ketl.domain.LogRepository
+import ketl.domain.LogRepo
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import java.time.LocalDateTime
 
-class DbLogRepository : LogRepository {
+class DbLogRepo : LogRepo {
   override fun add(message: LogMessage) {
     LogTable.insert {
       it[name] = message.loggerName

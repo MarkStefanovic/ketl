@@ -1,7 +1,7 @@
 package ketl.adapter
 
 import ketl.domain.ETLLog
-import ketl.domain.LogRepository
+import ketl.domain.LogRepo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.delay
@@ -14,10 +14,10 @@ import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
 @DelicateCoroutinesApi
-suspend fun exposedLogRepositoryCleaner(
+suspend fun dbLogRepoCleaner(
   db: Db,
   log: ETLLog,
-  repository: LogRepository,
+  repository: LogRepo,
   timeBetweenCleanup: Duration = Duration.minutes(30),
   durationToKeep: Duration = Duration.days(7),
   timeout: Duration = Duration.minutes(15),

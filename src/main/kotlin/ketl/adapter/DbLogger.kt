@@ -1,7 +1,7 @@
 package ketl.adapter
 
 import ketl.domain.LogMessage
-import ketl.domain.LogRepository
+import ketl.domain.LogRepo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.flow.SharedFlow
@@ -12,9 +12,9 @@ import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
 @DelicateCoroutinesApi
-suspend fun sqlLogger(
+suspend fun dbLogger(
   db: Db,
-  repository: LogRepository,
+  repository: LogRepo,
   messages: SharedFlow<LogMessage>,
   timeout: Duration = Duration.seconds(10),
 ) {
