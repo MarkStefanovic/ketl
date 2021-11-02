@@ -19,7 +19,7 @@ fun runSp(
   schemaName: String,
   spName: String,
   dialect: DbDialect,
-  init: Sp.Builder.() -> Unit,
+  init: Sp.Builder.() -> Unit = {},
 ): Map<String, Any?> {
   val sp = Sp.Builder(dialect = dialect).apply(init).build()
 
