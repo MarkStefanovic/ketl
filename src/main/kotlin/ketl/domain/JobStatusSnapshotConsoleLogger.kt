@@ -15,7 +15,7 @@ suspend fun jobStatusSnapshotConsoleLogger(statuses: JobStatuses) {
     val skippedCount = snapshot.values.count { it.statusName == JobStatusName.Skipped }
     val successes = snapshot.values.count { it.statusName == JobStatusName.Successful }
     val success = if (successes > 10) {
-      "$successes Jobs"
+      successes.toString()
     } else {
       "[${statusCSV(snapshot = snapshot, status = JobStatusName.Successful)}]"
     }
