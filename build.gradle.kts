@@ -1,21 +1,22 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-val exposedVersion = "0.35.1"
-
 plugins {
-    kotlin("jvm") version "1.5.21"
+    kotlin("jvm") version "1.5.31"
     id("org.jmailen.kotlinter") version "3.4.5"
 }
 
 group = "me.mes"
 version = "1.0-SNAPSHOT"
 
+val kotlinVersion: String = org.jetbrains.kotlin.config.KotlinCompilerVersion.VERSION
+val exposedVersion = "0.36.1"
+
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    testImplementation("org.jetbrains.kotlin:kotlin-test:1.5.21")
+    testImplementation("org.jetbrains.kotlin:kotlin-test:$kotlinVersion")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2-native-mt")
 
