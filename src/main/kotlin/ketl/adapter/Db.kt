@@ -1,6 +1,5 @@
 package ketl.adapter
 
-import com.zaxxer.hikari.HikariDataSource
 import ketl.domain.JobStatusName
 import ketl.domain.LogLevel
 import org.jetbrains.exposed.sql.Database
@@ -19,24 +18,20 @@ interface Db {
   fun createTables()
 }
 
-class HikariDb(private val ds: HikariDataSource) : Db {
-  private val db: Database by lazy {
-    Database.connect(ds)
-  }
-
+class SQLDb(private val exposedDb: Database) : Db {
   override fun <R> fetch(statement: Transaction.() -> R): R =
-    transaction(db = db) {
+    transaction(db = exposedDb) {
       statement()
     }
 
   override fun exec(statement: Transaction.() -> Unit) {
-    transaction(db = db) {
+    transaction(db = exposedDb) {
       statement()
     }
   }
 
   override fun createTables() {
-    transaction(db = db) {
+    transaction(db = exposedDb) {
       SchemaUtils.create(LogTable, JobResultTable, JobStatusTable)
     }
   }

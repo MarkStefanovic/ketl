@@ -2,12 +2,11 @@
 
 package ketl
 
-import com.zaxxer.hikari.HikariDataSource
 import ketl.adapter.Db
 import ketl.adapter.DbJobStatusRepo
 import ketl.adapter.DbLogRepo
 import ketl.adapter.DbResultRepo
-import ketl.adapter.HikariDb
+import ketl.adapter.SQLDb
 import ketl.adapter.dbLogRepoCleaner
 import ketl.adapter.dbLogger
 import ketl.adapter.dbResultRepoCleaner
@@ -33,6 +32,7 @@ import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import org.jetbrains.exposed.sql.Database
 import java.io.File
 import kotlin.system.exitProcess
 import kotlin.time.Duration
@@ -158,7 +158,7 @@ private suspend fun <Ctx : JobContext> startServices(
 suspend fun <Ctx : JobContext> start(
   createContext: () -> Ctx,
   createJobs: (Ctx) -> List<ETLJob<Ctx>>,
-  etlDatasource: (Ctx) -> HikariDataSource = { sqliteDatasource() },
+  etlDbConnector: (Ctx) -> Database = { Database.connect(url = "./etl.db", driver = "org.sqlite.JDBC") },
   maxSimultaneousJobs: Int = 10,
   logJobMessagesToConsole: Boolean = true,
   logStatusChangesToConsole: Boolean = true,
@@ -178,29 +178,25 @@ suspend fun <Ctx : JobContext> start(
   }
 
   val ctx = createContext()
+
   try {
-    val ds = etlDatasource(ctx)
-    val job =
-      try {
-        rootLog.info("Starting services...")
-        launch(dispatcher) {
-          startServices(
-            db = HikariDb(ds),
-            log = log,
-            rootLog = rootLog,
-            context = ctx,
-            createJobs = createJobs,
-            logStatusToConsole = logStatusChangesToConsole,
-            dispatcher = dispatcher,
-            maxSimultaneousJobs = maxSimultaneousJobs,
-            logCutoff = logCutoff,
-          )
-        }
-      } catch (e: Throwable) {
-        ds.close()
-        println("Closed connection to ETL database.")
-        throw e
-      }
+    val etlDb = etlDbConnector(ctx)
+
+    rootLog.info("Starting services...")
+
+    val job = launch(dispatcher) {
+      startServices(
+        db = SQLDb(etlDb),
+        log = log,
+        rootLog = rootLog,
+        context = ctx,
+        createJobs = createJobs,
+        logStatusToConsole = logStatusChangesToConsole,
+        dispatcher = dispatcher,
+        maxSimultaneousJobs = maxSimultaneousJobs,
+        logCutoff = logCutoff,
+      )
+    }
 
     job.invokeOnCompletion {
       it?.printStackTrace()
@@ -210,13 +206,6 @@ suspend fun <Ctx : JobContext> start(
         println("Children cancelled.")
       } catch (e: Throwable) {
         println("An exception occurred while closing child processes: ${e.stackTraceToString()}")
-      }
-
-      try {
-        ds.close()
-        println("Closed connection to ETL database.")
-      } catch (e: Throwable) {
-        println("An error occurred while closing the ETL datasource: ${e.stackTraceToString()}")
       }
 
       try {
