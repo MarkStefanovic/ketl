@@ -61,7 +61,7 @@ suspend fun <Ctx : JobContext> jobScheduler(
 
 @DelicateCoroutinesApi
 @ExperimentalTime
-fun dependenciesHaveRun(
+suspend fun dependenciesHaveRun(
   jobName: String,
   dependencies: Set<String>,
   results: JobResults,

@@ -2,6 +2,7 @@ package ketl.domain
 
 import ketl.adapter.Db
 import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collect
 import kotlin.coroutines.cancellation.CancellationException
@@ -17,6 +18,14 @@ suspend fun jobResultLogger(
       db.exec {
         repository.add(result)
       }
+    } catch (te: TimeoutCancellationException) {
+      println("""
+        |jobResultLogger: 
+        |  db.exec timed out while attempting to add the following result:
+        |    $result
+        |  message: ${te.message}
+        """.trimMargin()
+      )
     } catch (e: Exception) {
       if (e is CancellationException) {
         println("jobResultLogger cancelled.")

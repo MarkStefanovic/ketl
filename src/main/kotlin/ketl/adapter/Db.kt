@@ -2,6 +2,7 @@ package ketl.adapter
 
 import ketl.domain.JobStatusName
 import ketl.domain.LogLevel
+import kotlinx.coroutines.withTimeout
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.Table
@@ -9,30 +10,49 @@ import org.jetbrains.exposed.sql.Transaction
 import org.jetbrains.exposed.sql.javatime.CurrentDateTime
 import org.jetbrains.exposed.sql.javatime.datetime
 import org.jetbrains.exposed.sql.transactions.transaction
+import kotlin.time.Duration
+import kotlin.time.ExperimentalTime
 
 interface Db {
-  fun exec(statement: Transaction.() -> Unit)
+  suspend fun exec(statement: Transaction.() -> Unit): Result<Unit>
 
-  fun <R> fetch(statement: Transaction.() -> R): R
+  suspend fun <R> fetch(statement: Transaction.() -> R): Result<R>
 
-  fun createTables()
+  fun createBaseTables(): Result<Unit>
+
+  fun createJobSpecServiceTables(): Result<Unit>
 }
 
-class SQLDb(private val exposedDb: Database) : Db {
-  override fun <R> fetch(statement: Transaction.() -> R): R =
-    transaction(db = exposedDb) {
-      statement()
-    }
-
-  override fun exec(statement: Transaction.() -> Unit) {
-    transaction(db = exposedDb) {
-      statement()
+@ExperimentalTime
+class SQLDb constructor(
+  private val exposedDb: Database,
+  private val timeout: Duration,
+) : Db {
+  override suspend fun <R> fetch(statement: Transaction.() -> R): Result<R> = runCatching {
+    withTimeout(timeout) {
+      transaction(db = exposedDb) {
+        statement()
+      }
     }
   }
 
-  override fun createTables() {
+  override suspend fun exec(statement: Transaction.() -> Unit) = runCatching {
+    withTimeout(timeout) {
+      transaction(db = exposedDb) {
+        statement()
+      }
+    }
+  }
+
+  override fun createBaseTables() = runCatching {
     transaction(db = exposedDb) {
       SchemaUtils.create(LogTable, JobResultTable, JobStatusTable)
+    }
+  }
+
+  override fun createJobSpecServiceTables() = runCatching {
+    transaction(db = exposedDb) {
+      SchemaUtils.create(JobDepTable, JobSpecTable)
     }
   }
 }

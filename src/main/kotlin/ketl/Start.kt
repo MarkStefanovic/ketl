@@ -55,7 +55,7 @@ private suspend fun <Ctx : JobContext> startServices(
   rootLog.info("Starting ketl services...")
 
   rootLog.info("Checking if ETL tables exist...")
-  db.createTables()
+  db.createBaseTables()
 
   val logRepository = DbLogRepo()
 
@@ -158,12 +158,13 @@ private suspend fun <Ctx : JobContext> startServices(
 suspend fun <Ctx : JobContext> start(
   createContext: () -> Ctx,
   createJobs: (Ctx) -> List<ETLJob<Ctx>>,
-  etlDbConnector: (Ctx) -> Database = { Database.connect(url = "./etl.db", driver = "org.sqlite.JDBC") },
+  etlDbConnector: (Ctx) -> Database = { Database.connect(url = "jdbc:sqlite:./etl.db", driver = "org.sqlite.JDBC") },
   maxSimultaneousJobs: Int = 10,
   logJobMessagesToConsole: Boolean = true,
   logStatusChangesToConsole: Boolean = true,
   minLogLevel: LogLevel = LogLevel.Info,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
+  sqlTimeout: Duration = Duration.minutes(15),
   logCutoff: Duration = Duration.days(7),
 ) = coroutineScope {
   val log = SharedLog()
@@ -186,7 +187,7 @@ suspend fun <Ctx : JobContext> start(
 
     val job = launch(dispatcher) {
       startServices(
-        db = SQLDb(etlDb),
+        db = SQLDb(exposedDb = etlDb, timeout = sqlTimeout),
         log = log,
         rootLog = rootLog,
         context = ctx,

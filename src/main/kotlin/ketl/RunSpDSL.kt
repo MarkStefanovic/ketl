@@ -1,7 +1,7 @@
 package ketl
 
-import com.zaxxer.hikari.HikariDataSource
 import java.math.BigDecimal
+import java.sql.Connection
 import java.sql.Date
 import java.sql.Timestamp
 import java.sql.Types
@@ -15,7 +15,7 @@ enum class DbDialect {
 }
 
 fun runSp(
-  ds: HikariDataSource,
+  con: Connection,
   schemaName: String,
   spName: String,
   dialect: DbDialect,
@@ -34,109 +34,107 @@ fun runSp(
     }
   }
 
-  ds.connection.use { con ->
-    con.prepareCall(sql).use { call ->
-      inputParams.forEach { param ->
-        when (param) {
-          is SpParam.bool ->
+  con.prepareCall(sql).use { call ->
+    inputParams.forEach { param ->
+      when (param) {
+        is SpParam.bool ->
+          call.setBoolean(param.name, param.value)
+        is SpParam.nullableBool ->
+          if (param.value == null) {
+            call.setNull(param.name, Types.BOOLEAN)
+          } else {
             call.setBoolean(param.name, param.value)
-          is SpParam.nullableBool ->
-            if (param.value == null) {
-              call.setNull(param.name, Types.BOOLEAN)
-            } else {
-              call.setBoolean(param.name, param.value)
-            }
-          is SpParam.date ->
+          }
+        is SpParam.date ->
+          call.setDate(param.name, Date.valueOf(param.value))
+        is SpParam.nullableDate ->
+          if (param.value == null) {
+            call.setNull(param.name, Types.DATE)
+          } else {
             call.setDate(param.name, Date.valueOf(param.value))
-          is SpParam.nullableDate ->
-            if (param.value == null) {
-              call.setNull(param.name, Types.DATE)
-            } else {
-              call.setDate(param.name, Date.valueOf(param.value))
-            }
-          is SpParam.datetime ->
+          }
+        is SpParam.datetime ->
+          call.setTimestamp(param.name, Timestamp.valueOf(param.value))
+        is SpParam.nullableDatetime ->
+          if (param.value == null) {
+            call.setNull(param.name, Types.TIMESTAMP)
+          } else {
             call.setTimestamp(param.name, Timestamp.valueOf(param.value))
-          is SpParam.nullableDatetime ->
-            if (param.value == null) {
-              call.setNull(param.name, Types.TIMESTAMP)
-            } else {
-              call.setTimestamp(param.name, Timestamp.valueOf(param.value))
-            }
-          is SpParam.decimal ->
+          }
+        is SpParam.decimal ->
+          call.setBigDecimal(param.name, param.value)
+        is SpParam.nullableDecimal ->
+          if (param.value == null) {
+            call.setNull(param.name, Types.DECIMAL)
+          } else {
             call.setBigDecimal(param.name, param.value)
-          is SpParam.nullableDecimal ->
-            if (param.value == null) {
-              call.setNull(param.name, Types.DECIMAL)
-            } else {
-              call.setBigDecimal(param.name, param.value)
-            }
-          is SpParam.float ->
+          }
+        is SpParam.float ->
+          call.setFloat(param.name, param.value)
+        is SpParam.nullableFloat ->
+          if (param.value == null) {
+            call.setNull(param.name, Types.FLOAT)
+          } else {
             call.setFloat(param.name, param.value)
-          is SpParam.nullableFloat ->
-            if (param.value == null) {
-              call.setNull(param.name, Types.FLOAT)
-            } else {
-              call.setFloat(param.name, param.value)
-            }
-          is SpParam.int ->
+          }
+        is SpParam.int ->
+          call.setInt(param.name, param.value)
+        is SpParam.nullableInt ->
+          if (param.value == null) {
+            call.setNull(param.name, Types.INTEGER)
+          } else {
             call.setInt(param.name, param.value)
-          is SpParam.nullableInt ->
-            if (param.value == null) {
-              call.setNull(param.name, Types.INTEGER)
-            } else {
-              call.setInt(param.name, param.value)
-            }
-          is SpParam.text ->
+          }
+        is SpParam.text ->
+          call.setString(param.name, param.value)
+        is SpParam.nullableText ->
+          if (param.value == null) {
+            call.setNull(param.name, Types.VARCHAR)
+          } else {
             call.setString(param.name, param.value)
-          is SpParam.nullableText ->
-            if (param.value == null) {
-              call.setNull(param.name, Types.VARCHAR)
-            } else {
-              call.setString(param.name, param.value)
-            }
-        }
+          }
       }
-      if (outputParams.isEmpty()) {
-        call.execute()
-        return emptyMap()
-      } else {
-        val result = mutableMapOf<String, Any?>()
-        call.executeQuery().use { rs ->
-          for (param in outputParams) {
-            result[param.name] = when (param) {
-              is SpParam.bool -> rs.getBoolean(param.name)
-              is SpParam.nullableBool -> rs.getObject(param.name)
-              is SpParam.date -> rs.getDate(param.name).toLocalDate()
-              is SpParam.nullableDate -> {
-                val value = rs.getObject(param.name)
-                if (value == null) {
-                  null
-                } else {
-                  (value as Date).toLocalDate()
-                }
+    }
+    if (outputParams.isEmpty()) {
+      call.execute()
+      return emptyMap()
+    } else {
+      val result = mutableMapOf<String, Any?>()
+      call.executeQuery().use { rs ->
+        for (param in outputParams) {
+          result[param.name] = when (param) {
+            is SpParam.bool -> rs.getBoolean(param.name)
+            is SpParam.nullableBool -> rs.getObject(param.name)
+            is SpParam.date -> rs.getDate(param.name).toLocalDate()
+            is SpParam.nullableDate -> {
+              val value = rs.getObject(param.name)
+              if (value == null) {
+                null
+              } else {
+                (value as Date).toLocalDate()
               }
-              is SpParam.datetime -> rs.getTimestamp(param.name).toLocalDateTime()
-              is SpParam.nullableDatetime -> {
-                val value = rs.getObject(param.name)
-                if (value == null) {
-                  null
-                } else {
-                  (value as Timestamp).toLocalDateTime()
-                }
-              }
-              is SpParam.decimal -> rs.getBigDecimal(param.name)
-              is SpParam.nullableDecimal -> rs.getObject(param.name)
-              is SpParam.float -> rs.getFloat(param.name)
-              is SpParam.nullableFloat -> rs.getObject(param.name)
-              is SpParam.int -> rs.getInt(param.name)
-              is SpParam.nullableInt -> rs.getObject(param.name)
-              is SpParam.text -> rs.getString(param.name)
-              is SpParam.nullableText -> rs.getObject(param.name)
             }
+            is SpParam.datetime -> rs.getTimestamp(param.name).toLocalDateTime()
+            is SpParam.nullableDatetime -> {
+              val value = rs.getObject(param.name)
+              if (value == null) {
+                null
+              } else {
+                (value as Timestamp).toLocalDateTime()
+              }
+            }
+            is SpParam.decimal -> rs.getBigDecimal(param.name)
+            is SpParam.nullableDecimal -> rs.getObject(param.name)
+            is SpParam.float -> rs.getFloat(param.name)
+            is SpParam.nullableFloat -> rs.getObject(param.name)
+            is SpParam.int -> rs.getInt(param.name)
+            is SpParam.nullableInt -> rs.getObject(param.name)
+            is SpParam.text -> rs.getString(param.name)
+            is SpParam.nullableText -> rs.getObject(param.name)
           }
         }
-        return result
       }
+      return result
     }
   }
 }
