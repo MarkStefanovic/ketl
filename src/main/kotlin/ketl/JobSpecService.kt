@@ -51,7 +51,8 @@ class JobSpecService(
       } catch (te: TimeoutCancellationException) {
         _status.emit(ServiceStatus.Error(message = "db.exec timed out", originalError = te))
 
-        println("""
+        println(
+          """
           |JobSpecService.activeJobs(): db.exec timed out
           |  original error message: ${te.message}
         """.trimMargin()
@@ -59,7 +60,8 @@ class JobSpecService(
       } catch (e: Exception) {
         _status.emit(ServiceStatus.Error(message = e.message ?: "No error message provided", originalError = e))
 
-        println("""
+        println(
+          """
           |JobSpecService.activeJobs(): ${e.message}
           |  ${e.stackTraceToString()}
         """.trimMargin()

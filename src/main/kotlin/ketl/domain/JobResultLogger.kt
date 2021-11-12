@@ -19,7 +19,8 @@ suspend fun jobResultLogger(
         repository.add(result)
       }
     } catch (te: TimeoutCancellationException) {
-      println("""
+      println(
+        """
         |jobResultLogger: 
         |  db.exec timed out while attempting to add the following result:
         |    $result

@@ -1,9 +1,9 @@
 package ketl.domain
 
 sealed class ServiceStatus {
-  object Initial: ServiceStatus()
+  object Initial : ServiceStatus()
 
-  data class Error(val message: String, val originalError: Throwable): ServiceStatus()
+  data class Error(val message: String, val originalError: Throwable) : ServiceStatus()
 
-  object Ok: ServiceStatus()
+  object Ok : ServiceStatus()
 }

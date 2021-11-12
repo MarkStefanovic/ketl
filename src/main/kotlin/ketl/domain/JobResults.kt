@@ -37,7 +37,8 @@ class JobResults(private val db: Db) {
         repo.getLatestResultsForJob(jobName = jobName, n = 1)
       }.getOrThrow().firstOrNull()
     } catch (te: TimeoutCancellationException) {
-      println("""
+      println(
+        """
             |JobSpecService.activeJobs(): db.exec timed out
             |  original error message: ${te.message}
           """.trimMargin()
@@ -45,7 +46,8 @@ class JobResults(private val db: Db) {
       _status.emit(ServiceStatus.Error(message = "db.exec timed out", originalError = te))
       null
     } catch (e: Exception) {
-      println("""
+      println(
+        """
             |JobSpecService.activeJobs(): ${e.message}
             |  ${e.stackTraceToString()}
           """.trimMargin()
@@ -53,4 +55,4 @@ class JobResults(private val db: Db) {
       _status.emit(ServiceStatus.Error(message = e.message ?: "No error message provided.", originalError = e))
       null
     }
-  }
+}

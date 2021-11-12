@@ -21,7 +21,8 @@ suspend fun jobStatusLogger(
     try {
       db.exec { repository.upsert(jobStatus) }
     } catch (te: TimeoutCancellationException) {
-      println("""
+      println(
+        """
       |jobStatusLogger: 
       |  db.exec timed out while attempting to add the following job status:
       |    $jobStatus
