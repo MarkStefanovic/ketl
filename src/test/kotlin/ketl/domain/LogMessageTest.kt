@@ -7,7 +7,6 @@ private const val expectedToStringResult = """LogMessage [
   loggerName: test_logger
   level: Info
   message: This is a test
-  thread: test_thread
 ]"""
 
 class LogMessageTest {
@@ -17,7 +16,6 @@ class LogMessageTest {
       loggerName = "test_logger",
       level = LogLevel.Info,
       message = "This is a test",
-      thread = "test_thread",
     )
     assertEquals(expected = expectedToStringResult, actual = msg.toString())
   }

@@ -15,4 +15,4 @@ enum class LogLevel {
   Warning;
 }
 
-fun LogLevel.gte(other: LogLevel) = logLevelNumericValues[this]!! >= logLevelNumericValues[other]!!
+infix fun LogLevel.gte(other: LogLevel) = logLevelNumericValues[this]!! >= logLevelNumericValues[other]!!

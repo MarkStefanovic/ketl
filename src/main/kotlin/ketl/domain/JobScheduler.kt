@@ -3,65 +3,43 @@ package ketl.domain
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.yield
 import java.time.LocalDateTime
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.coroutineContext
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
 @DelicateCoroutinesApi
-suspend fun <Ctx : JobContext> jobScheduler(
-  context: Ctx,
-  createJobs: (Ctx) -> List<ETLJob<Ctx>>,
-  status: JobStatuses,
+suspend fun jobScheduler(
+  jobService: JobService,
   queue: JobQueue,
   results: JobResults,
-  maxSimultaneousJobs: Int,
-  scanFrequency: Duration = Duration.seconds(30),
+  timeBetweenScans: Duration,
 ) {
-  val queueTimes: ConcurrentHashMap<String, LocalDateTime> = ConcurrentHashMap()
-
   while (coroutineContext.isActive) {
-    var jobsToAdd = maxSimultaneousJobs - status.runningJobCount()
-    if (jobsToAdd > 0) {
-      val jobs = try {
-        createJobs(context)
-      } catch (e: Throwable) {
-        println("An error occurred while creating jobs: ${e.stackTraceToString()}")
-        emptyList()
-      }
-
-      if (jobs.isNotEmpty()) {
-        jobs.sortedBy { queueTimes[it.name] ?: LocalDateTime.MIN }.forEach { job ->
-          if (jobsToAdd > 0) {
-            val ready = job.schedule.ready(
-              lastRun = queueTimes[job.name],
-              refTime = LocalDateTime.now(),
-            )
-            val depsRan = dependenciesHaveRun(
-              jobName = job.name,
-              dependencies = job.dependencies,
-              results = results,
-            )
-            if (ready && depsRan) {
-              jobsToAdd--
-              queueTimes[job.name] = LocalDateTime.now()
-              queue.add(job)
-            }
-          }
-          yield()
-        }
+    jobService.getActiveJobs().forEach { job ->
+      val ready = job.schedule.ready(
+        lastRun = results.getLatestResultForJob(job.name)?.end,
+        refTime = LocalDateTime.now(),
+      )
+      val depsRan = dependenciesHaveRun(
+        jobName = job.name,
+        dependencies = job.dependencies,
+        results = results,
+      )
+      if (ready && depsRan) {
+        queue.add(job)
+      } else {
+        queue.drop(job.name)
       }
     }
-    delay(scanFrequency)
+    delay(timeBetweenScans)
   }
 }
 
 @DelicateCoroutinesApi
 @ExperimentalTime
-suspend fun dependenciesHaveRun(
+fun dependenciesHaveRun(
   jobName: String,
   dependencies: Set<String>,
   results: JobResults,

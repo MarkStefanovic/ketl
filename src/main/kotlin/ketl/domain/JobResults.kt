@@ -1,58 +1,32 @@
 package ketl.domain
 
-import ketl.adapter.Db
-import ketl.adapter.DbResultRepo
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlin.time.ExperimentalTime
+import java.util.concurrent.ConcurrentHashMap
 
-@ExperimentalTime
-@DelicateCoroutinesApi
-class JobResults(private val db: Db) {
-  private val repo = DbResultRepo()
+interface JobResults {
+  val stream: SharedFlow<JobResult>
 
-  private val _status = MutableStateFlow<ServiceStatus>(ServiceStatus.Initial)
-  val status = _status.asStateFlow()
+  fun getLatestResultForJob(name: String): JobResult?
 
-  private val _stream =
-    MutableSharedFlow<JobResult>(
-      onBufferOverflow = BufferOverflow.DROP_OLDEST,
-      extraBufferCapacity = 1000,
-    )
+  suspend fun add(result: JobResult)
+}
 
-  val stream = _stream.asSharedFlow()
+object DefaultJobResults : JobResults {
+  private val _stream = MutableSharedFlow<JobResult>(
+    extraBufferCapacity = 100,
+    onBufferOverflow = BufferOverflow.DROP_OLDEST,
+  )
+  override val stream = _stream.asSharedFlow()
 
-  suspend fun add(result: JobResult) {
+  private val results = ConcurrentHashMap<String, JobResult>(emptyMap())
+
+  override fun getLatestResultForJob(name: String): JobResult? = results[name]
+
+  override suspend fun add(result: JobResult) {
+    results[result.jobName] = result
     _stream.emit(result)
   }
-
-  suspend fun getLatestResultForJob(jobName: String): JobResult? =
-    try {
-      db.fetch {
-        repo.getLatestResultsForJob(jobName = jobName, n = 1)
-      }.getOrThrow().firstOrNull()
-    } catch (te: TimeoutCancellationException) {
-      println(
-        """
-            |JobSpecService.activeJobs(): db.exec timed out
-            |  original error message: ${te.message}
-          """.trimMargin()
-      )
-      _status.emit(ServiceStatus.Error(message = "db.exec timed out", originalError = te))
-      null
-    } catch (e: Exception) {
-      println(
-        """
-            |JobSpecService.activeJobs(): ${e.message}
-            |  ${e.stackTraceToString()}
-          """.trimMargin()
-      )
-      _status.emit(ServiceStatus.Error(message = e.message ?: "No error message provided.", originalError = e))
-      null
-    }
 }

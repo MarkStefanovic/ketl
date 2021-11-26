@@ -1,22 +1,44 @@
 package ketl.domain
 
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
-class JobQueue {
-  private val _stream =
-    MutableSharedFlow<ETLJob<*>>(
-      replay = 0,
-      extraBufferCapacity = 1000,
-      onBufferOverflow = BufferOverflow.SUSPEND,
-    )
+interface JobQueue {
+  val stream: StateFlow<List<KETLJob>>
 
-  val stream = _stream.asSharedFlow()
+  suspend fun add(job: KETLJob)
 
-  suspend fun add(job: ETLJob<*>) {
-    _stream.emit(job)
+  suspend fun drop(jobName: String)
+
+  suspend fun pop(): KETLJob?
+}
+
+@ExperimentalTime
+object DefaultJobQueue : JobQueue {
+  private val _stream = MutableStateFlow<List<KETLJob>>(emptyList())
+  override val stream = _stream.asStateFlow()
+
+  private val jobs = ConcurrentLinkedQueue<KETLJob>(emptyList())
+
+  override suspend fun add(job: KETLJob) {
+    if (!jobs.contains(job)) {
+      jobs.add(job)
+      _stream.emit(jobs.toList())
+    }
+  }
+
+  override suspend fun drop(jobName: String) {
+    jobs.dropWhile { it.name == jobName }
+    _stream.emit(jobs.toList())
+  }
+
+  override suspend fun pop(): KETLJob? {
+    val job: KETLJob? = jobs.poll()
+    _stream.emit(jobs.toList())
+    return job
   }
 }

@@ -1,66 +1,33 @@
 package ketl.domain
 
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.time.ExperimentalTime
 
-data class Snapshot(val values: Set<JobStatus>)
+interface JobStatuses {
+  val stream: SharedFlow<Map<String, JobStatus>>
 
-@ExperimentalTime
-class JobStatuses {
-  private val current = ConcurrentHashMap<String, JobStatus>()
+  suspend fun add(status: JobStatus)
 
-  private val _stream =
-    MutableSharedFlow<JobStatus>(
-      replay = 1,
-      extraBufferCapacity = 100,
-      onBufferOverflow = BufferOverflow.SUSPEND,
-    )
+  val runningJobCount: Int
+}
 
-  val stream = _stream.asSharedFlow()
+object DefaultJobStatuses : JobStatuses {
+  private val _stream = MutableSharedFlow<Map<String, JobStatus>>(
+    extraBufferCapacity = 100,
+    onBufferOverflow = BufferOverflow.DROP_OLDEST,
+  )
+  override val stream = _stream.asSharedFlow()
 
-  private val _snapshots = MutableStateFlow(Snapshot(emptySet()))
+  private val statuses = ConcurrentHashMap<String, JobStatus>(emptyMap())
 
-  val snapshots = _snapshots.asStateFlow()
-
-//  init {
-//    jobs.forEach { job ->
-//      setStatus(JobStatus.Initial(jobName = job.name, ts = LocalDateTime.now()))
-//    }
-//  }
-
-  suspend fun cancel(jobName: String) {
-    setStatus(JobStatus.Cancelled(jobName = jobName, ts = LocalDateTime.now()))
+  override suspend fun add(status: JobStatus) {
+    statuses[status.jobName] = status
+    _stream.emit(statuses.toMap())
   }
 
-  suspend fun running(jobName: String) {
-    setStatus(JobStatus.Running(jobName = jobName, ts = LocalDateTime.now()))
-  }
-
-  suspend fun failure(jobName: String, errorMessage: String) {
-    setStatus(JobStatus.Failure(jobName = jobName, ts = LocalDateTime.now(), errorMessage = errorMessage))
-  }
-
-  suspend fun skipped(jobName: String, reason: String) {
-    setStatus(JobStatus.Skipped(jobName = jobName, ts = LocalDateTime.now(), reason = reason))
-  }
-
-  suspend fun success(jobName: String) {
-    setStatus(JobStatus.Success(jobName = jobName, ts = LocalDateTime.now()))
-  }
-
-  fun runningJobCount(): Int =
-    current.values.count { it.statusName == JobStatusName.Running }
-
-  private suspend fun setStatus(status: JobStatus) = coroutineScope {
-    current[status.jobName] = status
-    _stream.emit(status)
-    _snapshots.value = Snapshot(current.values.toSet())
-  }
+  override val runningJobCount: Int
+    get() = statuses.values.count { it is JobStatus.Running }
 }
