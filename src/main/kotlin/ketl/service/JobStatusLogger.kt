@@ -1,7 +1,10 @@
 package ketl.service
 
+import ketl.domain.DefaultJobStatuses
+import ketl.domain.DefaultLog
 import ketl.domain.JobStatus
 import ketl.domain.JobStatuses
+import ketl.domain.Log
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import java.time.LocalDateTime
@@ -10,7 +13,10 @@ import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
 @DelicateCoroutinesApi
-suspend fun jobStatusSnapshotConsoleLogger(jobStatuses: JobStatuses) {
+suspend fun jobStatusLogger(
+  jobStatuses: JobStatuses = DefaultJobStatuses,
+  log: Log = DefaultLog,
+) {
   jobStatuses.stream.collect { statuses ->
     val namesStatusMap =
       statuses.map { (key, value) ->
@@ -39,15 +45,16 @@ suspend fun jobStatusSnapshotConsoleLogger(jobStatuses: JobStatuses) {
           "- [${jobStatus.jobName}] ${jobStatus.ts.format(dtFormatter)}: ${formatErrorMessage(jobStatus.errorMessage)}"
         } + "\n  "
       }
-    println(
-      """
-      |$ts  
-      |  Running: $running
-      |  Success: $success
-      |  Skipped: $skipped
-      |  Failed:  $failed
-      |  $errorMessages
-    """.trimMargin()
+    log.info(
+      name = "jobStatusLogger",
+      message = """
+        |$ts  
+        |  Running: $running
+        |  Success: $success
+        |  Skipped: $skipped
+        |  Failed:  $failed
+        |  $errorMessages
+      """.trimMargin(),
     )
   }
 }

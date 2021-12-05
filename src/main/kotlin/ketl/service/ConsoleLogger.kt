@@ -1,5 +1,6 @@
 package ketl.service
 
+import ketl.domain.DefaultLog
 import ketl.domain.Log
 import ketl.domain.LogLevel
 import ketl.domain.LogMessage
@@ -8,8 +9,8 @@ import ketl.domain.gte
 import kotlinx.coroutines.flow.collect
 
 suspend fun consoleLogger(
-  log: Log,
-  minLogLevel: LogLevel,
+  log: Log = DefaultLog,
+  minLogLevel: LogLevel = LogLevel.Info,
   format: (LogMessage) -> String = ::defaultLogFormat,
 ) {
   log.stream.collect { logMessage ->
