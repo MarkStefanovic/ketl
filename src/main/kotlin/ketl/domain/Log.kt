@@ -4,6 +4,7 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import java.time.LocalDateTime
 
 interface Log {
   val stream: SharedFlow<LogMessage>
@@ -29,18 +30,18 @@ object DefaultLog : Log {
   }
 
   override suspend fun debug(name: String, message: String) {
-    add(LogMessage(loggerName = name, level = LogLevel.Debug, message = message))
+    add(LogMessage(loggerName = name, level = LogLevel.Debug, message = message, ts = LocalDateTime.now()))
   }
 
   override suspend fun error(name: String, message: String) {
-    add(LogMessage(loggerName = name, level = LogLevel.Error, message = message))
+    add(LogMessage(loggerName = name, level = LogLevel.Error, message = message, ts = LocalDateTime.now()))
   }
 
   override suspend fun info(name: String, message: String) {
-    add(LogMessage(loggerName = name, level = LogLevel.Info, message = message))
+    add(LogMessage(loggerName = name, level = LogLevel.Info, message = message, ts = LocalDateTime.now()))
   }
 
   override suspend fun warning(name: String, message: String) {
-    add(LogMessage(loggerName = name, level = LogLevel.Warning, message = message))
+    add(LogMessage(loggerName = name, level = LogLevel.Warning, message = message, ts = LocalDateTime.now()))
   }
 }

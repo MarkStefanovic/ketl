@@ -16,6 +16,10 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2-native-mt")
 
     testImplementation("org.jetbrains.kotlin:kotlin-test:$kotlinVersion")
+
+    testImplementation("org.xerial:sqlite-jdbc:3.36.0.2")
+
+    testImplementation("org.postgresql", "postgresql", "42.2.16")
 }
 
 kotlinter {
@@ -27,5 +31,9 @@ tasks.test {
 }
 
 tasks.compileKotlin {
-    kotlinOptions.jvmTarget = "1.8"
+    kotlinOptions.jvmTarget = "16"
+}
+
+tasks.compileTestJava {
+    targetCompatibility = "16"
 }

@@ -36,6 +36,7 @@ suspend fun jobRunner(
           )
         }
       }
+      delay(10)
     }
     delay(timeBetweenScans)
   }
