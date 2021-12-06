@@ -32,6 +32,10 @@ tasks.test {
     useJUnitPlatform()
 }
 
+tasks.compileJava {
+    targetCompatibility = "16"
+}
+
 tasks.compileKotlin {
     kotlinOptions.jvmTarget = "16"
 }
