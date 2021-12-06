@@ -15,7 +15,7 @@ class PgLogRepo(
 ) : LogRepo {
 
   fun createLogTable(con: Connection) {
-    val sql = """
+    val createTableSQL = """
       |CREATE TABLE IF NOT EXISTS $schema.log (
       |  id SERIAL PRIMARY KEY
       |, log_name TEXT NOT NULL CHECK (LENGTH(log_name) > 0)
@@ -25,8 +25,16 @@ class PgLogRepo(
       |)
     """.trimMargin()
 
+    val createTsIndexSQL = "CREATE INDEX IF NOT EXISTS ix_log_ts ON $schema.log (ts)"
+
+    val createLogNameIndexSQL = "CREATE INDEX IF NOT EXISTS ix_log_log_name ON $schema.log (log_name)"
+
     con.createStatement().use { statement ->
-      statement.executeUpdate(sql)
+      statement.executeUpdate(createTableSQL)
+
+      statement.executeUpdate(createTsIndexSQL)
+
+      statement.executeUpdate(createLogNameIndexSQL)
     }
   }
 
