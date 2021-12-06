@@ -20,6 +20,8 @@ dependencies {
     testImplementation("org.xerial:sqlite-jdbc:3.36.0.2")
 
     testImplementation("org.postgresql", "postgresql", "42.2.16")
+
+    testImplementation("com.zaxxer:HikariCP:5.0.0")
 }
 
 kotlinter {
@@ -36,4 +38,8 @@ tasks.compileKotlin {
 
 tasks.compileTestJava {
     targetCompatibility = "16"
+}
+
+tasks.compileTestKotlin {
+    kotlinOptions.jvmTarget = "16"
 }

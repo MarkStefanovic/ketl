@@ -2,22 +2,28 @@
 
 package ketl.adapter
 
+import com.zaxxer.hikari.HikariConfig
+import com.zaxxer.hikari.HikariDataSource
 import ketl.domain.LogLevel
 import ketl.domain.LogMessage
-import org.sqlite.SQLiteDataSource
+import org.junit.jupiter.api.Test
 import java.time.LocalDateTime
 import javax.sql.DataSource
-import kotlin.test.Test
 import kotlin.test.assertEquals
 
-private fun testDataSource() = SQLiteDataSource().apply {
-  url = "jdbc:sqlite:file:test?mode=memory&cache=shared"
+private fun testDataSource(): DataSource {
+  val config = HikariConfig().apply {
+    jdbcUrl = "jdbc:postgresql://localhost:5432/testdb"
+    username = "postgres"
+    password = "pgparty"
+  }
+  return HikariDataSource(config)
 }
 
 private fun getLogMessages(ds: DataSource): List<LogMessage> {
   val sql = """
     |SELECT log_name, log_level, message, ts
-    |FROM log
+    |FROM ketl.log
     |ORDER BY ts
   """.trimMargin()
 
@@ -48,17 +54,26 @@ private fun getLogMessages(ds: DataSource): List<LogMessage> {
   return result
 }
 
-class SQLiteLogRepoTest {
+class PgLogRepoTest {
   @Test
   fun add_happy_path() {
     val ds = testDataSource()
 
-    val repo = SQLiteLogRepo(ds = ds)
+    val repo = PgLogRepo(ds = ds, schema = "ketl")
 
     ds.connection.use { connection ->
+      connection.createStatement().use { statement ->
+        statement.executeUpdate("DROP TABLE IF EXISTS ketl.log")
+      }
+
       repo.createLogTable(con = connection)
 
-      val msg = LogMessage(loggerName = "test_log", level = LogLevel.Info, message = "test message", ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5))
+      val msg = LogMessage(
+        loggerName = "test_log",
+        level = LogLevel.Info,
+        message = "test message",
+        ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5)
+      )
 
       repo.add(msg)
 
@@ -72,9 +87,13 @@ class SQLiteLogRepoTest {
   fun deleteBefore_happy_path() {
     val ds = testDataSource()
 
-    val repo = SQLiteLogRepo(ds = ds)
+    val repo = PgLogRepo(ds = ds, schema = "ketl")
 
     ds.connection.use { connection ->
+      connection.createStatement().use { statement ->
+        statement.executeUpdate("DROP TABLE IF EXISTS ketl.log")
+      }
+
       repo.createLogTable(con = connection)
 
       val msg1 = LogMessage(loggerName = "test_log", level = LogLevel.Info, message = "test message", ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5))

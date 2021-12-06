@@ -9,16 +9,19 @@ import java.sql.Timestamp
 import java.time.LocalDateTime
 import javax.sql.DataSource
 
-class SQLiteLogRepo(private val ds: DataSource) : LogRepo {
+class PgLogRepo(
+  private val ds: DataSource,
+  private val schema: String,
+) : LogRepo {
 
   fun createLogTable(con: Connection) {
     val sql = """
-      |CREATE TABLE IF NOT EXISTS log (
-      |  id INTEGER PRIMARY KEY 
+      |CREATE TABLE IF NOT EXISTS $schema.log (
+      |  id SERIAL PRIMARY KEY
       |, log_name TEXT NOT NULL CHECK (LENGTH(log_name) > 0)
       |, log_level TEXT NOT NULL CHECK (log_level IN ('debug', 'error', 'info', 'warning'))
       |, message TEXT NOT NULL CHECK (LENGTH(message) > 0)
-      |, ts DATETIME NOT NULL DEFAULT current_timestamp 
+      |, ts TIMESTAMPTZ(0) NOT NULL DEFAULT current_timestamp 
       |)
     """.trimMargin()
 
@@ -29,7 +32,7 @@ class SQLiteLogRepo(private val ds: DataSource) : LogRepo {
 
   override fun add(message: LogMessage) {
     val sql = """
-      |INSERT INTO log (
+      |INSERT INTO $schema.log (
       |  log_name
       |, log_level
       |, message
@@ -55,7 +58,7 @@ class SQLiteLogRepo(private val ds: DataSource) : LogRepo {
 
   override fun deleteBefore(ts: LocalDateTime) {
     val sql = """
-      |DELETE FROM log 
+      |DELETE FROM $schema.log 
       |WHERE log.ts < ?
     """.trimMargin()
     ds.connection.use { con ->
