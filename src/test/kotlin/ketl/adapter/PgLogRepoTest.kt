@@ -4,6 +4,7 @@ package ketl.adapter
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import getConfig
 import ketl.domain.LogLevel
 import ketl.domain.LogMessage
 import org.junit.jupiter.api.Test
@@ -12,12 +13,14 @@ import javax.sql.DataSource
 import kotlin.test.assertEquals
 
 private fun testDataSource(): DataSource {
-  val config = HikariConfig().apply {
-    jdbcUrl = "jdbc:postgresql://localhost:5432/testdb"
-    username = "postgres"
-    password = "pgparty"
+  val config = getConfig()
+
+  val hikariConfig = HikariConfig().apply {
+    jdbcUrl = config.pgURL
+    username = config.pgUsername
+    password = config.pgPassword
   }
-  return HikariDataSource(config)
+  return HikariDataSource(hikariConfig)
 }
 
 private fun getLogMessages(ds: DataSource): List<LogMessage> {
@@ -72,7 +75,7 @@ class PgLogRepoTest {
         loggerName = "test_log",
         level = LogLevel.Info,
         message = "test message",
-        ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5)
+        ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5),
       )
 
       repo.add(msg)

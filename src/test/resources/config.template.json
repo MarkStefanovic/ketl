@@ -1,0 +1,6 @@
+{
+  "instructions": "Fill in the parameters below and rename the file to config.json.",
+  "pgURL": "jdbc:postgresql://localhost:5432/testdb",
+  "pgUsername": "myusername",
+  "pgPassword": "mypassword"
+}

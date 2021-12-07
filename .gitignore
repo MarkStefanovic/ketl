@@ -42,3 +42,4 @@ local.properties
 .out
 NOTES.txt
 /src/main/kotlin/example.kt
+/src/test/resources/config.json
