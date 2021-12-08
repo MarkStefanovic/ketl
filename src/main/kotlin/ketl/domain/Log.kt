@@ -20,8 +20,6 @@ object LogMessages {
 }
 
 interface Log {
-  fun new(name: String): Log
-
   suspend fun debug(message: String)
 
   suspend fun error(message: String)
@@ -35,9 +33,6 @@ data class NamedLog(
   val name: String,
   private val stream: SharedFlow<LogMessage> = LogMessages.stream,
 ) : Log {
-
-  override fun new(name: String): Log =
-    NamedLog(name = name, stream = stream)
 
   override suspend fun debug(message: String) {
     add(LogMessage(loggerName = name, level = LogLevel.Debug, message = message, ts = LocalDateTime.now()))

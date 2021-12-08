@@ -10,6 +10,8 @@ import ketl.domain.JobResults
 import ketl.domain.JobService
 import ketl.domain.JobStatuses
 import ketl.domain.Log
+import ketl.domain.LogMessage
+import ketl.domain.LogMessages
 import ketl.domain.NamedLog
 import ketl.domain.jobRunner
 import ketl.domain.jobScheduler
@@ -19,6 +21,7 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.time.Duration
@@ -35,6 +38,7 @@ suspend fun start(
   maxSimultaneousJobs: Int = 10,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
   timeBetweenScans: Duration = Duration.seconds(10),
+  logMessages: SharedFlow<LogMessage> = LogMessages.stream,
 ) = coroutineScope {
   try {
     log.info("Starting services...")
@@ -53,7 +57,7 @@ suspend fun start(
         queue = jobQueue,
         results = jobResults,
         statuses = jobStatuses,
-        log = log,
+        logMessages = logMessages,
         dispatcher = dispatcher,
         maxSimultaneousJobs = maxSimultaneousJobs,
         timeBetweenScans = timeBetweenScans,

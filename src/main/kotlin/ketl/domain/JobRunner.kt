@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
@@ -18,7 +19,7 @@ suspend fun jobRunner(
   queue: JobQueue,
   results: JobResults,
   statuses: JobStatuses,
-  log: Log,
+  logMessages: SharedFlow<LogMessage>,
   dispatcher: CoroutineDispatcher,
   maxSimultaneousJobs: Int,
   timeBetweenScans: Duration,
@@ -27,7 +28,7 @@ suspend fun jobRunner(
     while (statuses.runningJobCount < maxSimultaneousJobs) {
       val job = queue.pop()
       if (job != null) {
-        val jobLog = log.new(job.name)
+        val jobLog = NamedLog(name = job.name, stream = logMessages)
 
         launch(dispatcher) {
           runJob(
