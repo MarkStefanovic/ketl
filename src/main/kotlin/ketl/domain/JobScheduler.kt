@@ -56,7 +56,7 @@ fun dependenciesHaveRun(
         if (latestDepResult == null) {
           false
         } else {
-          if (latestDepResult is JobResult.Success) {
+          if (latestDepResult is JobResult.Successful) {
             latestDepResult.end > latestResult.end
           } else {
             false

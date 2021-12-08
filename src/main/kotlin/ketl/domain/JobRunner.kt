@@ -88,7 +88,7 @@ private suspend fun runJob(
         )
         log.error("${result.jobName} failed: ${result.errorMessage}")
       }
-      is JobResult.Success -> {
+      is JobResult.Successful -> {
         statuses.add(
           JobStatus.Success(
             jobName = job.name,
@@ -166,7 +166,7 @@ suspend fun runWithRetry(
           reason = status.reason,
         )
       Status.Success ->
-        JobResult.Success(
+        JobResult.Successful(
           jobName = job.name,
           start = start,
           end = LocalDateTime.now(),

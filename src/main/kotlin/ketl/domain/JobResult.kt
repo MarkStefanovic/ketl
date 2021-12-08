@@ -69,7 +69,7 @@ sealed class JobResult(
     """.trimMargin()
   }
 
-  class Success(
+  class Successful(
     jobName: String,
     start: LocalDateTime,
     end: LocalDateTime,

@@ -12,4 +12,13 @@ interface KETLJob {
   val dependencies: Set<String>
 
   suspend fun run(log: Log): Status
+
+  fun failed(errorMessage: String): Status =
+    Status.Failure(errorMessage)
+
+  fun skipped(reason: String): Status =
+    Status.Skipped(reason)
+
+  fun success(): Status =
+    Status.Success
 }

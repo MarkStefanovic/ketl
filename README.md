@@ -7,8 +7,6 @@ import ketl.domain.Status
 import ketl.domain.every
 import ketl.service.StaticJobService
 import ketl.service.consoleLogger
-import ketl.service.jobQueueLogger
-import ketl.service.jobResultsLogger
 import ketl.service.jobStatusLogger
 import ketl.start
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -32,14 +30,17 @@ class DummyJob(
 ) : KETLJob {
   override suspend fun run(log: Log): Status {
     print(name)
-    log.info(name = name, message = "Running $name...")
+    log.info(message = "Running $name...")
     delay(sleep)
     val roll = Random.nextInt(0, 100)
-    if (roll > 75) {
+    return if (roll > 75) {
       throw Exception("Rolled a $roll.")
+    } else if (roll > 50) {
+      failed("Rolled a $roll")
+    } else {
+      log.info(message = "Finished running $name.")
+      success()
     }
-    log.info(name = name, message = "Finished running $name.")
-    return Status.Success
   }
 }
 
