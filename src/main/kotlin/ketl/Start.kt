@@ -31,14 +31,14 @@ import kotlin.time.ExperimentalTime
 @ExperimentalTime
 suspend fun start(
   jobService: JobService,
-  log: Log = NamedLog("ketl"),
+  logMessages: SharedFlow<LogMessage> = LogMessages.stream,
+  log: Log = NamedLog(name = "ketl", stream = logMessages),
   jobQueue: JobQueue = DefaultJobQueue,
   jobStatuses: JobStatuses = DefaultJobStatuses,
   jobResults: JobResults = DefaultJobResults,
   maxSimultaneousJobs: Int = 10,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
   timeBetweenScans: Duration = Duration.seconds(10),
-  logMessages: SharedFlow<LogMessage> = LogMessages.stream,
 ) = coroutineScope {
   try {
     log.info("Starting services...")
