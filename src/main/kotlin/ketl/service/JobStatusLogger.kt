@@ -1,10 +1,10 @@
 package ketl.service
 
 import ketl.domain.DefaultJobStatuses
-import ketl.domain.DefaultLog
 import ketl.domain.JobStatus
 import ketl.domain.JobStatuses
 import ketl.domain.Log
+import ketl.domain.NamedLog
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import java.time.LocalDateTime
@@ -15,7 +15,7 @@ import kotlin.time.ExperimentalTime
 @DelicateCoroutinesApi
 suspend fun jobStatusLogger(
   jobStatuses: JobStatuses = DefaultJobStatuses,
-  log: Log = DefaultLog,
+  log: Log = NamedLog("jobStatusLogger"),
 ) {
   jobStatuses.stream.collect { statuses ->
     val namesStatusMap =
@@ -46,8 +46,7 @@ suspend fun jobStatusLogger(
         } + "\n  "
       }
     log.info(
-      name = "jobStatusLogger",
-      message = """
+      """
         |$ts  
         |  Running: $running
         |  Success: $success

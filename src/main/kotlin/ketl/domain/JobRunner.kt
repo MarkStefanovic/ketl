@@ -27,12 +27,14 @@ suspend fun jobRunner(
     while (statuses.runningJobCount < maxSimultaneousJobs) {
       val job = queue.pop()
       if (job != null) {
+        val jobLog = log.new(job.name)
+
         launch(dispatcher) {
           runJob(
             results = results,
             statuses = statuses,
             job = job,
-            log = log,
+            log = jobLog,
           )
         }
       }
@@ -53,7 +55,7 @@ private suspend fun runJob(
   val start = LocalDateTime.now()
 
   try {
-    log.debug(name = job.name, "Starting ${job.name}...")
+    log.debug("Starting ${job.name}...")
 
     statuses.add(JobStatus.Running(jobName = job.name, ts = start))
 
@@ -73,7 +75,7 @@ private suspend fun runJob(
             ts = LocalDateTime.now(),
           )
         )
-        log.info(name = job.name, "${result.jobName} was cancelled.")
+        log.info("${result.jobName} was cancelled.")
       }
       is JobResult.Failed -> {
         statuses.add(
@@ -83,7 +85,7 @@ private suspend fun runJob(
             errorMessage = result.errorMessage,
           )
         )
-        log.error(name = job.name, "${result.jobName} failed: ${result.errorMessage}")
+        log.error("${result.jobName} failed: ${result.errorMessage}")
       }
       is JobResult.Success -> {
         statuses.add(
@@ -92,7 +94,7 @@ private suspend fun runJob(
             ts = LocalDateTime.now(),
           )
         )
-        log.debug(name = job.name, "${result.jobName} finished successfully.")
+        log.debug("${result.jobName} finished successfully.")
       }
       is JobResult.Skipped -> {
         statuses.add(
@@ -102,13 +104,13 @@ private suspend fun runJob(
             reason = result.reason,
           )
         )
-        log.info(name = job.name, "${result.jobName} was skipped.")
+        log.info("${result.jobName} was skipped.")
       }
     }
 
-    log.debug(name = job.name, "Finished ${job.name}")
+    log.debug("Finished ${job.name}")
   } catch (ce: CancellationException) {
-    log.error(name = job.name, "${job.name} cancelled: ${ce.message}")
+    log.error("${job.name} cancelled: ${ce.message}")
   } catch (e: Exception) {
     statuses.add(
       JobStatus.Failed(
@@ -125,7 +127,7 @@ private suspend fun runJob(
         errorMessage = e.message ?: "No error message was provided.",
       )
     )
-    log.error(name = job.name, "An unexpected error occurred while running ${job.name}: ${e.message}")
+    log.error("An unexpected error occurred while running ${job.name}: ${e.message}")
   }
 }
 
@@ -178,7 +180,7 @@ suspend fun runWithRetry(
         errorMessage = e.stackTraceToString(),
       )
     } else {
-      log.info(name = job.name, "${job.name} threw an exception, running retry ${retries + 1} of ${job.maxRetries}...")
+      log.info("${job.name} threw an exception, running retry ${retries + 1} of ${job.maxRetries}...")
       runWithRetry(
         job = job,
         log = log,

@@ -5,12 +5,12 @@ package ketl
 import ketl.domain.DefaultJobQueue
 import ketl.domain.DefaultJobResults
 import ketl.domain.DefaultJobStatuses
-import ketl.domain.DefaultLog
 import ketl.domain.JobQueue
 import ketl.domain.JobResults
 import ketl.domain.JobService
 import ketl.domain.JobStatuses
 import ketl.domain.Log
+import ketl.domain.NamedLog
 import ketl.domain.jobRunner
 import ketl.domain.jobScheduler
 import kotlinx.coroutines.CancellationException
@@ -28,7 +28,7 @@ import kotlin.time.ExperimentalTime
 @ExperimentalTime
 suspend fun start(
   jobService: JobService,
-  log: Log = DefaultLog,
+  log: Log = NamedLog("ketl"),
   jobQueue: JobQueue = DefaultJobQueue,
   jobStatuses: JobStatuses = DefaultJobStatuses,
   jobResults: JobResults = DefaultJobResults,
@@ -37,7 +37,7 @@ suspend fun start(
   timeBetweenScans: Duration = Duration.seconds(10),
 ) = coroutineScope {
   try {
-    log.info(name = "ketl", message = "Starting services...")
+    log.info("Starting services...")
 
     launch(dispatcher) {
       jobScheduler(
@@ -66,18 +66,18 @@ suspend fun start(
       try {
         dispatcher.cancelChildren(it as? CancellationException)
         launch(dispatcher) {
-          log.info(name = "ketl", message = "Children cancelled.")
+          log.info(message = "Children cancelled.")
         }
       } catch (e: Throwable) {
         launch(dispatcher) {
-          log.info(name = "ketl", message = "An exception occurred while closing child coroutines: ${e.stackTraceToString()}")
+          log.info("An exception occurred while closing child coroutines: ${e.stackTraceToString()}")
         }
       }
     }
 
     job
   } catch (e: Throwable) {
-    log.info(name = "ketl", message = e.stackTraceToString())
+    log.info(e.stackTraceToString())
     throw e
   }
 }
