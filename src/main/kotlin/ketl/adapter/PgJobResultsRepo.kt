@@ -18,21 +18,21 @@ data class PgJobResultsRepo(
         val fullTableName = """"$schema".job_result"""
 
         val createTableSQL = """
-          |CREATE TABLE IF NOT EXISTS $fullTableName (
-          |  id SERIAL PRIMARY KEY
-          |, job_name TEXT NOT NULL CHECK (LENGTH(log_name) > 0)
-          |, start_time TIMESTAMP NOT NULL
-          |, end_time TIMESTAMP NOT NULL CHECK (end_time >= start_time)
-          |, result TEXT NOT NULL CHECK (result IN ('cancelled', 'failed', 'skipped', 'successful'))
-          |, error_message TEXT NULL CHECK (
-          |    (result = 'failed' AND LENGTH(error_message) > 0)
-          |    OR (result <> 'failed' AND error_message IS NULL)
+          |  CREATE TABLE IF NOT EXISTS $fullTableName (
+          |    id SERIAL PRIMARY KEY
+          |  , job_name TEXT NOT NULL CHECK (LENGTH(log_name) > 0)
+          |  , start_time TIMESTAMP NOT NULL
+          |  , end_time TIMESTAMP NOT NULL CHECK (end_time >= start_time)
+          |  , result TEXT NOT NULL CHECK (result IN ('cancelled', 'failed', 'skipped', 'successful'))
+          |  , error_message TEXT NULL CHECK (
+          |      (result = 'failed' AND LENGTH(error_message) > 0)
+          |      OR (result <> 'failed' AND error_message IS NULL)
+          |    )
+          |  , skip_reason TEXT NULL CHECK (
+          |      (result = 'skipped' AND LENGTH(skip_reason) > 0)
+          |      OR (result <> 'skipped' AND skip_reason IS NULL)
+          |    )
           |  )
-          |, skip_reason TEXT NULL CHECK (
-          |    (result = 'skipped' AND LENGTH(skip_reason) > 0)
-          |    OR (result <> 'skipped' AND skip_reason IS NULL)
-          |  )
-          |)
         """.trimMargin()
 
         if (showSQL) {
@@ -47,31 +47,31 @@ data class PgJobResultsRepo(
         statement.execute(createTableSQL.trimIndent())
 
         val startTimeIndexSQL = """
-          |CREATE INDEX IF NOT EXISTS ix_job_result_job_name_start_time 
-          |  ON $fullTableName (job_name, start_time)
+          |  CREATE INDEX IF NOT EXISTS ix_job_result_job_name_start_time 
+          |    ON $fullTableName (job_name, start_time)
         """.trimMargin()
 
-        statement.execute(startTimeIndexSQL)
+        statement.execute(startTimeIndexSQL.trimIndent())
       }
     }
   }
 
   override suspend fun add(result: JobResult) {
     val sql = """
-      |INSERT INTO "$schema".job_result (
-      |  job_name
-      |, start_time
-      |, end_time
-      |, result
-      |, error_message
-      |, skip_reason
-      |) VALUES (
-      |  ?
-      |, ?
-      |, ?
-      |, ?
-      |, ?
-      |, ?
+      |  INSERT INTO "$schema".job_result (
+      |    job_name
+      |  , start_time
+      |  , end_time
+      |  , result
+      |  , error_message
+      |  , skip_reason
+      |  ) VALUES (
+      |    ?
+      |  , ?
+      |  , ?
+      |  , ?
+      |  , ?
+      |  , ?
       |)
     """.trimMargin()
 
