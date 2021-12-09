@@ -14,23 +14,26 @@ suspend fun jobScheduler(
   jobService: JobService,
   queue: JobQueue,
   results: JobResults,
+  statuses: JobStatuses,
   timeBetweenScans: Duration,
 ) {
   while (coroutineContext.isActive) {
     jobService.getActiveJobs().forEach { job ->
-      val ready = job.schedule.ready(
-        lastRun = results.getLatestResultForJob(job.name)?.end,
-        refTime = LocalDateTime.now(),
-      )
-      val depsRan = dependenciesHaveRun(
-        jobName = job.name,
-        dependencies = job.dependencies,
-        results = results,
-      )
-      if (ready && depsRan) {
-        queue.add(job)
-      } else {
-        queue.drop(job.name)
+      if (job.name !in statuses.runningJobs) {
+        val ready = job.schedule.ready(
+          lastRun = results.getLatestResultForJob(job.name)?.end,
+          refTime = LocalDateTime.now(),
+        )
+        val depsRan = dependenciesHaveRun(
+          jobName = job.name,
+          dependencies = job.dependencies,
+          results = results,
+        )
+        if (ready && depsRan) {
+          queue.add(job)
+        } else {
+          queue.drop(job.name)
+        }
       }
     }
     delay(timeBetweenScans)

@@ -12,6 +12,8 @@ interface JobStatuses {
   suspend fun add(status: JobStatus)
 
   val runningJobCount: Int
+
+  val runningJobs: Set<String>
 }
 
 object DefaultJobStatuses : JobStatuses {
@@ -30,4 +32,7 @@ object DefaultJobStatuses : JobStatuses {
 
   override val runningJobCount: Int
     get() = statuses.values.count { it is JobStatus.Running }
+
+  override val runningJobs: Set<String>
+    get() = statuses.values.filter { it is JobStatus.Running || it is JobStatus.Initial }.map { it.jobName }.toSet()
 }

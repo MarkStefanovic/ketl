@@ -48,6 +48,7 @@ suspend fun start(
         jobService = jobService,
         queue = jobQueue,
         results = jobResults,
+        statuses = jobStatuses,
         timeBetweenScans = timeBetweenScans,
       )
     }

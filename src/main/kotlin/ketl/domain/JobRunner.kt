@@ -27,6 +27,7 @@ suspend fun jobRunner(
   while (coroutineContext.isActive) {
     while (statuses.runningJobCount < maxSimultaneousJobs) {
       val job = queue.pop()
+
       if (job != null) {
         val jobLog = NamedLog(name = job.name, stream = logMessages)
 
