@@ -6,4 +6,6 @@ interface JobResultsRepo {
   suspend fun add(result: JobResult)
 
   suspend fun deleteBefore(ts: LocalDateTime)
+
+  suspend fun getLatestResults(): Set<JobResult>
 }

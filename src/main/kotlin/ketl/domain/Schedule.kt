@@ -18,7 +18,8 @@ data class Schedule(
   override fun toString() = """
     |Schedule [
     |  displayName: $displayName
-    |  parts: ...
+    |  parts: 
+    |    ${parts.map { it.toString().split("\n")}.joinToString("\n    ") }
     |]
   """.trimMargin()
 }

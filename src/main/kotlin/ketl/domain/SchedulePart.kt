@@ -18,4 +18,13 @@ data class SchedulePart(
         startDateTime = startDateTime,
         refDateTime = refTime,
       )
+
+  override fun toString(): String =
+    """
+      |SchedulePart [
+      |  frequency: $frequency
+      |  window: $window
+      |  startDateTime: $startDateTime
+      |]
+    """.trimMargin()
 }

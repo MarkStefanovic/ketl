@@ -2,6 +2,7 @@ package ketl.adapter
 
 import ketl.domain.JobResult
 import ketl.domain.JobResultsRepo
+import ketl.domain.KETLErrror
 import java.sql.Timestamp
 import java.sql.Types
 import java.time.LocalDateTime
@@ -15,15 +16,16 @@ data class PgJobResultsRepo(
   init {
     ds.connection.use { connection ->
       connection.createStatement().use { statement ->
-        val fullTableName = """"$schema".job_result"""
-
+        // language=PostgreSQL
         val createTableSQL = """
-          |  CREATE TABLE IF NOT EXISTS $fullTableName (
+          |  CREATE TABLE IF NOT EXISTS $schema.job_result (
           |    id SERIAL PRIMARY KEY
-          |  , job_name TEXT NOT NULL CHECK (LENGTH(log_name) > 0)
+          |  , job_name TEXT NOT NULL CHECK (LENGTH(job_name) > 0)
           |  , start_time TIMESTAMP NOT NULL
           |  , end_time TIMESTAMP NOT NULL CHECK (end_time >= start_time)
-          |  , result TEXT NOT NULL CHECK (result IN ('cancelled', 'failed', 'skipped', 'successful'))
+          |  , result TEXT NOT NULL CHECK (
+          |      result IN ('cancelled', 'failed', 'skipped', 'successful')
+          |    )
           |  , error_message TEXT NULL CHECK (
           |      (result = 'failed' AND LENGTH(error_message) > 0)
           |      OR (result <> 'failed' AND error_message IS NULL)
@@ -46,9 +48,11 @@ data class PgJobResultsRepo(
 
         statement.execute(createTableSQL.trimIndent())
 
+        // language=PostgreSQL
         val startTimeIndexSQL = """
+          |-- noinspection SqlResolve @ table/"job_result"
           |  CREATE INDEX IF NOT EXISTS ix_job_result_job_name_start_time 
-          |    ON $fullTableName (job_name, start_time)
+          |    ON $schema.job_result (job_name, start_time)
         """.trimMargin()
 
         statement.execute(startTimeIndexSQL.trimIndent())
@@ -57,8 +61,9 @@ data class PgJobResultsRepo(
   }
 
   override suspend fun add(result: JobResult) {
+    // language=PostgreSQL
     val sql = """
-      |  INSERT INTO "$schema".job_result (
+      |  INSERT INTO $schema.job_result (
       |    job_name
       |  , start_time
       |  , end_time
@@ -110,12 +115,15 @@ data class PgJobResultsRepo(
         } else {
           preparedStatement.setString(6, skipReason)
         }
+
+        preparedStatement.executeUpdate()
       }
     }
   }
 
   override suspend fun deleteBefore(ts: LocalDateTime) {
-    val sql = """DELETE FROM "$schema".job_result WHERE start_time < ?"""
+    // language=PostgreSQL
+    val sql = "DELETE FROM $schema.job_result WHERE start_time < ?"
 
     if (showSQL) {
       println(
@@ -129,6 +137,81 @@ data class PgJobResultsRepo(
     ds.connection.use { connection ->
       connection.prepareStatement(sql).use { preparedStatement ->
         preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
+
+        preparedStatement.executeUpdate()
+      }
+    }
+  }
+
+  override suspend fun getLatestResults(): Set<JobResult> {
+    // language=PostgreSQL
+    val sql = """
+      |-- noinspection SqlResolve @ schema/"jr"
+      |  SELECT DISTINCT ON (jr.job_name)  
+      |    jr.job_name
+      |  , jr.start_time
+      |  , jr.end_time
+      |  , jr.result
+      |  , jr.error_message
+      |  , jr.skip_reason
+      |  FROM $schema.job_result AS jr
+      |  ORDER BY 
+      |    jr.job_name
+      |  , jr.start_time DESC
+    """.trimMargin()
+
+    if (showSQL) {
+      println(
+        """
+        |PgJobResultsRepo.getLatestResult SQL:
+        |  ${sql.split("\n").joinToString("\n    ")}
+      """.trimMargin()
+      )
+    }
+
+    ds.connection.use { connection ->
+      connection.createStatement().use { statement ->
+        val result = statement.executeQuery(sql)
+
+        val jobResults = mutableListOf<JobResult>()
+        while (result.next()) {
+          val jobName = result.getString("job_name")
+          val startTime = result.getTimestamp("start_time").toLocalDateTime()
+          val endTime = result.getTimestamp("end_time").toLocalDateTime()
+          val resultTypeName = result.getString("result")
+          val errorMessage = result.getObject("error_message") as String?
+          val skipReason = result.getObject("skip_reason") as String?
+
+          val jobResult: JobResult = when (resultTypeName) {
+            "cancelled" -> JobResult.Cancelled(
+              jobName = jobName,
+              start = startTime,
+              end = endTime,
+            )
+            "failed" -> JobResult.Failed(
+              jobName = jobName,
+              start = startTime,
+              end = endTime,
+              errorMessage = errorMessage ?: "No message was provided.",
+            )
+            "skipped" -> JobResult.Skipped(
+              jobName = jobName,
+              start = startTime,
+              end = endTime,
+              reason = skipReason ?: "No reason was provided.",
+            )
+            "successful" -> JobResult.Successful(
+              jobName = jobName,
+              start = startTime,
+              end = endTime,
+            )
+            else -> throw KETLErrror.UnrecognizedResultTypeName(resultTypeName)
+          }
+
+          jobResults.add(jobResult)
+        }
+
+        return jobResults.toSet()
       }
     }
   }
