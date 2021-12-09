@@ -1,27 +1,12 @@
-@file:Suppress("SqlDialectInspection")
-
 package ketl.adapter
 
-import com.zaxxer.hikari.HikariConfig
-import com.zaxxer.hikari.HikariDataSource
-import getConfig
 import ketl.domain.LogLevel
 import ketl.domain.LogMessage
 import org.junit.jupiter.api.Test
+import testutil.pgDataSource
 import java.time.LocalDateTime
 import javax.sql.DataSource
 import kotlin.test.assertEquals
-
-private fun testDataSource(): DataSource {
-  val config = getConfig()
-
-  val hikariConfig = HikariConfig().apply {
-    jdbcUrl = config.pgURL
-    username = config.pgUsername
-    password = config.pgPassword
-  }
-  return HikariDataSource(hikariConfig)
-}
 
 private fun getLogMessages(ds: DataSource): List<LogMessage> {
   val sql = """
@@ -60,7 +45,7 @@ private fun getLogMessages(ds: DataSource): List<LogMessage> {
 class PgLogRepoTest {
   @Test
   fun add_happy_path() {
-    val ds = testDataSource()
+    val ds = pgDataSource()
 
     val repo = PgLogRepo(ds = ds, schema = "ketl")
 
@@ -88,7 +73,7 @@ class PgLogRepoTest {
 
   @Test
   fun deleteBefore_happy_path() {
-    val ds = testDataSource()
+    val ds = pgDataSource()
 
     val repo = PgLogRepo(ds = ds, schema = "ketl")
 
