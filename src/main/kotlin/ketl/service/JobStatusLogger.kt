@@ -9,6 +9,7 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
@@ -17,7 +18,11 @@ suspend fun jobStatusLogger(
   jobStatuses: JobStatuses = DefaultJobStatuses,
   log: Log = NamedLog("jobStatusLogger"),
 ) {
-  jobStatuses.stream.collect { statuses ->
+  val statuses = ConcurrentHashMap<String, JobStatus>()
+
+  jobStatuses.stream.statuses.collect { status: JobStatus ->
+    statuses[status.jobName] = status
+
     val namesStatusMap =
       statuses.map { (key, value) ->
         key to when (value) {

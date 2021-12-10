@@ -19,7 +19,7 @@ suspend fun jobScheduler(
 ) {
   while (coroutineContext.isActive) {
     jobService.getActiveJobs().forEach { job ->
-      if (job.name !in statuses.runningJobs) {
+      if (job.name !in statuses.state.runningJobs) {
         val ready = job.schedule.ready(
           lastRun = results.getLatestResultForJob(job.name)?.end,
           refTime = LocalDateTime.now(),

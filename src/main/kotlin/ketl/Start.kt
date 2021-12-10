@@ -15,6 +15,7 @@ import ketl.domain.LogMessages
 import ketl.domain.NamedLog
 import ketl.domain.jobRunner
 import ketl.domain.jobScheduler
+import ketl.service.jobStatusCleaner
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -49,6 +50,14 @@ suspend fun start(
         queue = jobQueue,
         results = jobResults,
         statuses = jobStatuses,
+        timeBetweenScans = timeBetweenScans,
+      )
+    }
+
+    launch(dispatcher) {
+      jobStatusCleaner(
+        jobService = jobService,
+        jobStatuses = jobStatuses,
         timeBetweenScans = timeBetweenScans,
       )
     }

@@ -7,6 +7,9 @@ sealed class JobStatus(
   val statusName: String,
   val ts: LocalDateTime,
 ) {
+  val isRunning: Boolean
+    get() = this is Initial || this is Running
+
   class Cancelled(jobName: String, ts: LocalDateTime) :
     JobStatus(jobName = jobName, statusName = "cancelled", ts = ts)
 

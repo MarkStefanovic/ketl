@@ -6,33 +6,60 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import java.util.concurrent.ConcurrentHashMap
 
-interface JobStatuses {
-  val stream: SharedFlow<Map<String, JobStatus>>
+interface JobStatusStream {
+  val statuses: SharedFlow<JobStatus>
 
-  suspend fun add(status: JobStatus)
+  suspend fun add(jobStatus: JobStatus)
+}
 
-  val runningJobCount: Int
+interface JobStatusState {
+  fun add(status: JobStatus)
+
+  fun currentStatusOf(jobName: String): JobStatus?
 
   val runningJobs: Set<String>
 }
 
-object DefaultJobStatuses : JobStatuses {
-  private val _stream = MutableSharedFlow<Map<String, JobStatus>>(
+interface JobStatuses {
+  val stream: JobStatusStream
+
+  val state: JobStatusState
+
+  suspend fun add(jobStatus: JobStatus) {
+    stream.add(jobStatus)
+    state.add(jobStatus)
+  }
+}
+
+object DefaultJobStatusStream : JobStatusStream {
+  private val _stream = MutableSharedFlow<JobStatus>(
     extraBufferCapacity = 100,
     onBufferOverflow = BufferOverflow.DROP_OLDEST,
   )
-  override val stream = _stream.asSharedFlow()
 
+  override val statuses = _stream.asSharedFlow()
+
+  override suspend fun add(jobStatus: JobStatus) {
+    _stream.emit(jobStatus)
+  }
+}
+
+object DefaultJobStatusState : JobStatusState {
   private val statuses = ConcurrentHashMap<String, JobStatus>(emptyMap())
 
-  override suspend fun add(status: JobStatus) {
+  override fun add(status: JobStatus) {
     statuses[status.jobName] = status
-    _stream.emit(statuses.toMap())
   }
 
-  override val runningJobCount: Int
-    get() = statuses.values.count { it is JobStatus.Running }
+  override fun currentStatusOf(jobName: String): JobStatus? =
+    statuses[jobName]
 
   override val runningJobs: Set<String>
-    get() = statuses.values.filter { it is JobStatus.Running || it is JobStatus.Initial }.map { it.jobName }.toSet()
+    get() = statuses.keys
+}
+
+object DefaultJobStatuses : JobStatuses {
+  override val stream: JobStatusStream = DefaultJobStatusStream
+
+  override val state: JobStatusState = DefaultJobStatusState
 }

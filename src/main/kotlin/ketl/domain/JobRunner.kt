@@ -25,7 +25,7 @@ suspend fun jobRunner(
   timeBetweenScans: Duration,
 ) = coroutineScope {
   while (coroutineContext.isActive) {
-    while (statuses.runningJobCount < maxSimultaneousJobs) {
+    while (statuses.state.runningJobs.count() < maxSimultaneousJobs) {
       val job = queue.pop()
 
       if (job != null) {
