@@ -24,11 +24,18 @@ suspend fun jobRunner(
   maxSimultaneousJobs: Int,
   timeBetweenScans: Duration,
 ) = coroutineScope {
+  val log = NamedLog("jobRunner")
+
   while (coroutineContext.isActive) {
+    log.debug("Running jobs: ${statuses.state.runningJobs}")
+
     while (statuses.state.runningJobs.count() < maxSimultaneousJobs) {
       val job = queue.pop()
 
-      if (job != null) {
+      if (job == null) {
+        log.debug("No job was found in the queue.")
+      } else {
+        log.debug("Starting ${job.name}...")
         val jobLog = NamedLog(name = job.name, stream = logMessages)
 
         launch(dispatcher) {
@@ -40,8 +47,11 @@ suspend fun jobRunner(
           )
         }
       }
-      delay(10)
+      delay(1000)
     }
+
+    log.debug("Waiting ${timeBetweenScans.inWholeSeconds} seconds to scan again.")
+
     delay(timeBetweenScans)
   }
 }
@@ -129,7 +139,7 @@ private suspend fun runJob(
         errorMessage = e.message ?: "No error message was provided.",
       )
     )
-    log.error("An unexpected error occurred while running ${job.name}: ${e.message}")
+    log.error("An unexpected error occurred while running ${job.name}: ${e.message}\n${e.stackTraceToString()}")
   }
 }
 

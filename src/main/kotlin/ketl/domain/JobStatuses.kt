@@ -55,7 +55,7 @@ object DefaultJobStatusState : JobStatusState {
     statuses[jobName]
 
   override val runningJobs: Set<String>
-    get() = statuses.keys
+    get() = statuses.values.filter { it.isRunning }.map { it.jobName }.toSet()
 }
 
 object DefaultJobStatuses : JobStatuses {
