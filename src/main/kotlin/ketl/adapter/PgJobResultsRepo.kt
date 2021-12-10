@@ -18,30 +18,30 @@ data class PgJobResultsRepo(
       connection.createStatement().use { statement ->
         // language=PostgreSQL
         val createTableSQL = """
-          |  CREATE TABLE IF NOT EXISTS $schema.job_result (
-          |    id SERIAL PRIMARY KEY
-          |  , job_name TEXT NOT NULL CHECK (LENGTH(job_name) > 0)
-          |  , start_time TIMESTAMP NOT NULL
-          |  , end_time TIMESTAMP NOT NULL CHECK (end_time >= start_time)
-          |  , result TEXT NOT NULL CHECK (
-          |      result IN ('cancelled', 'failed', 'skipped', 'successful')
-          |    )
-          |  , error_message TEXT NULL CHECK (
-          |      (result = 'failed' AND LENGTH(error_message) > 0)
-          |      OR (result <> 'failed' AND error_message IS NULL)
-          |    )
-          |  , skip_reason TEXT NULL CHECK (
-          |      (result = 'skipped' AND LENGTH(skip_reason) > 0)
-          |      OR (result <> 'skipped' AND skip_reason IS NULL)
-          |    )
+          |CREATE TABLE IF NOT EXISTS $schema.job_result (
+          |  id SERIAL PRIMARY KEY
+          |, job_name TEXT NOT NULL CHECK (LENGTH(job_name) > 0)
+          |, start_time TIMESTAMP NOT NULL
+          |, end_time TIMESTAMP NOT NULL CHECK (end_time >= start_time)
+          |, result TEXT NOT NULL CHECK (
+          |    result IN ('cancelled', 'failed', 'skipped', 'successful')
           |  )
+          |, error_message TEXT NULL CHECK (
+          |    (result = 'failed' AND LENGTH(error_message) > 0)
+          |    OR (result <> 'failed' AND error_message IS NULL)
+          |  )
+          |, skip_reason TEXT NULL CHECK (
+          |    (result = 'skipped' AND LENGTH(skip_reason) > 0)
+          |    OR (result <> 'skipped' AND skip_reason IS NULL)
+          |  )
+          |)
         """.trimMargin()
 
         if (showSQL) {
           println(
             """
             |PgJobResultsRepo.init createTableSQL:
-            |  $createTableSQL 
+            |  ${createTableSQL.split("\n").joinToString("\n  ")} 
           """.trimMargin()
           )
         }
@@ -51,9 +51,18 @@ data class PgJobResultsRepo(
         // language=PostgreSQL
         val startTimeIndexSQL = """
           |-- noinspection SqlResolve @ table/"job_result"
-          |  CREATE INDEX IF NOT EXISTS ix_job_result_job_name_start_time 
-          |    ON $schema.job_result (job_name, start_time)
+          |CREATE INDEX IF NOT EXISTS ix_job_result_job_name_start_time 
+          |  ON $schema.job_result (job_name, start_time)
         """.trimMargin()
+
+        if (showSQL) {
+          println(
+            """
+            |PgJobResultsRepo.init startTimeIndexSQL:
+            |  ${startTimeIndexSQL.split("\n").joinToString("\n  ")} 
+          """.trimMargin()
+          )
+        }
 
         statement.execute(startTimeIndexSQL.trimIndent())
       }
