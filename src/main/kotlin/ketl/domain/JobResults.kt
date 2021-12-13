@@ -1,15 +1,17 @@
 package ketl.domain
 
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.withContext
+import java.util.concurrent.Executors
 
 interface JobResults {
   val stream: SharedFlow<JobResult>
 
-  fun getLatestResultForJob(name: String): JobResult?
+  suspend fun getLatestResultForJob(name: String): JobResult?
 
   suspend fun add(result: JobResult)
 }
@@ -21,11 +23,16 @@ object DefaultJobResults : JobResults {
   )
   override val stream = _stream.asSharedFlow()
 
-  private val results = ConcurrentHashMap<String, JobResult>(emptyMap())
+  private val dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
 
-  override fun getLatestResultForJob(name: String): JobResult? = results[name]
+  private val results = mutableMapOf<String, JobResult>()
 
-  override suspend fun add(result: JobResult) {
+  override suspend fun getLatestResultForJob(name: String): JobResult? =
+    withContext(dispatcher) {
+      results[name]
+    }
+
+  override suspend fun add(result: JobResult) = withContext(dispatcher) {
     results[result.jobName] = result
     _stream.emit(result)
   }

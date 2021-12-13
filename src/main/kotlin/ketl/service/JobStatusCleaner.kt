@@ -21,7 +21,7 @@ suspend fun jobStatusCleaner(
   log: Log = NamedLog("jobStatusCleaner"),
 ) {
   while (coroutineContext.isActive) {
-    jobStatuses.state.runningJobs.forEach { jobName ->
+    jobStatuses.state.runningJobs().forEach { jobName ->
       val job = jobService.getJob(jobName)
 
       if (job != null) {

@@ -19,7 +19,7 @@ suspend fun jobScheduler(
 ) {
   while (coroutineContext.isActive) {
     jobService.getActiveJobs().forEach { job ->
-      if (job.name !in statuses.state.runningJobs) {
+      if (job.name !in statuses.state.runningJobs()) {
         val ready = job.schedule.ready(
           lastRun = results.getLatestResultForJob(job.name)?.end,
           refTime = LocalDateTime.now(),
@@ -42,7 +42,7 @@ suspend fun jobScheduler(
 
 @DelicateCoroutinesApi
 @ExperimentalTime
-fun dependenciesHaveRun(
+suspend fun dependenciesHaveRun(
   jobName: String,
   dependencies: Set<String>,
   results: JobResults,

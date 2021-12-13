@@ -27,9 +27,10 @@ suspend fun jobRunner(
   val log = NamedLog("jobRunner")
 
   while (coroutineContext.isActive) {
-    log.debug("Running jobs: ${statuses.state.runningJobs}")
+    val runningJobs = statuses.state.runningJobs()
+    log.debug("Running jobs: $runningJobs")
 
-    while (statuses.state.runningJobs.count() < maxSimultaneousJobs) {
+    while (statuses.state.runningJobs().count() < maxSimultaneousJobs) {
       val job = queue.pop()
 
       if (job == null) {

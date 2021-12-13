@@ -6,10 +6,12 @@ import ketl.domain.JobStatuses
 import ketl.domain.Log
 import ketl.domain.NamedLog
 import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
@@ -18,10 +20,15 @@ suspend fun jobStatusLogger(
   jobStatuses: JobStatuses = DefaultJobStatuses,
   log: Log = NamedLog("jobStatusLogger"),
 ) {
-  val statuses = ConcurrentHashMap<String, JobStatus>()
+  val dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+
+  val latestStatuses = mutableMapOf<String, JobStatus>()
 
   jobStatuses.stream.statuses.collect { status: JobStatus ->
-    statuses[status.jobName] = status
+    val statuses = withContext(dispatcher) {
+      latestStatuses[status.jobName] = status
+      latestStatuses
+    }
 
     val namesStatusMap =
       statuses.map { (key, value) ->

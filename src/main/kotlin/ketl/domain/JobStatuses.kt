@@ -1,10 +1,12 @@
 package ketl.domain
 
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.withContext
+import java.util.concurrent.Executors
 
 interface JobStatusStream {
   val statuses: SharedFlow<JobStatus>
@@ -13,11 +15,11 @@ interface JobStatusStream {
 }
 
 interface JobStatusState {
-  fun add(status: JobStatus)
+  suspend fun add(status: JobStatus)
 
-  fun currentStatusOf(jobName: String): JobStatus?
+  suspend fun currentStatusOf(jobName: String): JobStatus?
 
-  val runningJobs: Set<String>
+  suspend fun runningJobs(): Set<String>
 }
 
 interface JobStatuses {
@@ -45,17 +47,21 @@ object DefaultJobStatusStream : JobStatusStream {
 }
 
 object DefaultJobStatusState : JobStatusState {
-  private val statuses = ConcurrentHashMap<String, JobStatus>(emptyMap())
+  private val dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
 
-  override fun add(status: JobStatus) {
+  private val statuses = mutableMapOf<String, JobStatus>()
+
+  override suspend fun add(status: JobStatus) = withContext(dispatcher) {
     statuses[status.jobName] = status
   }
 
-  override fun currentStatusOf(jobName: String): JobStatus? =
+  override suspend fun currentStatusOf(jobName: String): JobStatus? = withContext(dispatcher) {
     statuses[jobName]
+  }
 
-  override val runningJobs: Set<String>
-    get() = statuses.values.filter { it.isRunning }.map { it.jobName }.toSet()
+  override suspend fun runningJobs(): Set<String> = withContext(dispatcher) {
+    statuses.values.filter { it.isRunning }.map { it.jobName }.toSet()
+  }
 }
 
 object DefaultJobStatuses : JobStatuses {
