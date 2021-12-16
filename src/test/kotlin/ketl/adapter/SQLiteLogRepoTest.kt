@@ -56,7 +56,7 @@ class SQLiteLogRepoTest {
     val repo = SQLiteLogRepo(ds = ds)
 
     ds.connection.use { connection ->
-      repo.createLogTable(con = connection)
+      repo.createTable()
 
       val msg = LogMessage(loggerName = "test_log", level = LogLevel.Info, message = "test message", ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5))
 
@@ -75,7 +75,7 @@ class SQLiteLogRepoTest {
     val repo = SQLiteLogRepo(ds = ds)
 
     ds.connection.use { connection ->
-      repo.createLogTable(con = connection)
+      repo.createTable()
 
       val msg1 = LogMessage(loggerName = "test_log", level = LogLevel.Info, message = "test message", ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5))
       val msg2 = LogMessage(loggerName = "test_log", level = LogLevel.Info, message = "test message", ts = LocalDateTime.of(2011, 1, 2, 3, 4, 5))

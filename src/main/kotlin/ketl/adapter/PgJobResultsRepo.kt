@@ -1,8 +1,9 @@
 package ketl.adapter
 
+import ketl.domain.DbJobResultsRepo
 import ketl.domain.JobResult
-import ketl.domain.JobResultsRepo
 import ketl.domain.KETLErrror
+import java.sql.Connection
 import java.sql.Timestamp
 import java.sql.Types
 import java.time.LocalDateTime
@@ -12,161 +13,43 @@ data class PgJobResultsRepo(
   val schema: String,
   val showSQL: Boolean,
   private val ds: DataSource,
-) : JobResultsRepo {
-  init {
-    ds.connection.use { connection ->
-      connection.createStatement().use { statement ->
-        // language=PostgreSQL
-        val createTableSQL = """
-          |CREATE TABLE IF NOT EXISTS $schema.job_result (
-          |  id SERIAL PRIMARY KEY
-          |, job_name TEXT NOT NULL CHECK (LENGTH(job_name) > 0)
-          |, start_time TIMESTAMP NOT NULL
-          |, end_time TIMESTAMP NOT NULL CHECK (end_time >= start_time)
-          |, result TEXT NOT NULL CHECK (
-          |    result IN ('cancelled', 'failed', 'skipped', 'successful')
-          |  )
-          |, error_message TEXT NULL CHECK (
-          |    (result = 'failed' AND LENGTH(error_message) > 0)
-          |    OR (result <> 'failed' AND error_message IS NULL)
-          |  )
-          |, skip_reason TEXT NULL CHECK (
-          |    (result = 'skipped' AND LENGTH(skip_reason) > 0)
-          |    OR (result <> 'skipped' AND skip_reason IS NULL)
-          |  )
-          |)
-        """.trimMargin()
+) : DbJobResultsRepo {
+  override fun createTables() {
+    ds.connection.use { con ->
+      createJobResultSnapshotTable(con = con, schema = schema, showSQL = showSQL)
 
-        if (showSQL) {
-          println(
-            """
-            |PgJobResultsRepo.init createTableSQL:
-            |  ${createTableSQL.split("\n").joinToString("\n  ")} 
-          """.trimMargin()
-          )
-        }
-
-        statement.execute(createTableSQL.trimIndent())
-
-        // language=PostgreSQL
-        val startTimeIndexSQL = """
-          |-- noinspection SqlResolve @ table/"job_result"
-          |CREATE INDEX IF NOT EXISTS ix_job_result_job_name_start_time 
-          |  ON $schema.job_result (job_name, start_time)
-        """.trimMargin()
-
-        if (showSQL) {
-          println(
-            """
-            |PgJobResultsRepo.init startTimeIndexSQL:
-            |  ${startTimeIndexSQL.split("\n").joinToString("\n  ")} 
-          """.trimMargin()
-          )
-        }
-
-        statement.execute(startTimeIndexSQL.trimIndent())
-      }
+      createJobResultTable(con = con, schema = schema, showSQL = showSQL)
     }
   }
 
-  override suspend fun add(result: JobResult) {
-    // language=PostgreSQL
-    val sql = """
-      |  INSERT INTO $schema.job_result (
-      |    job_name
-      |  , start_time
-      |  , end_time
-      |  , result
-      |  , error_message
-      |  , skip_reason
-      |  ) VALUES (
-      |    ?
-      |  , ?
-      |  , ?
-      |  , ?
-      |  , ?
-      |  , ?
-      |)
-    """.trimMargin()
+  override fun add(jobResult: JobResult) {
+    ds.connection.use { con ->
+      addResultToJobResultSnapshotTable(con = con, schema = schema, jobResult = jobResult, showSQL = showSQL)
 
-    val resultName: String = when (result) {
-      is JobResult.Cancelled -> "cancelled"
-      is JobResult.Failed -> "failed"
-      is JobResult.Skipped -> "skipped"
-      is JobResult.Successful -> "successful"
-    }
-
-    val errorMessage: String? = if (result is JobResult.Failed) {
-      result.errorMessage
-    } else {
-      null
-    }
-
-    val skipReason: String? = if (result is JobResult.Skipped) {
-      result.reason
-    } else {
-      null
-    }
-
-    ds.connection.use { connection ->
-      connection.prepareStatement(sql.trimIndent()).use { preparedStatement ->
-        preparedStatement.setString(1, result.jobName)
-        preparedStatement.setTimestamp(2, Timestamp.valueOf(result.start))
-        preparedStatement.setTimestamp(3, Timestamp.valueOf(result.end))
-        preparedStatement.setString(4, resultName)
-        if (errorMessage == null) {
-          preparedStatement.setNull(5, Types.VARCHAR)
-        } else {
-          preparedStatement.setString(5, errorMessage)
-        }
-        if (skipReason == null) {
-          preparedStatement.setNull(6, Types.VARCHAR)
-        } else {
-          preparedStatement.setString(6, skipReason)
-        }
-
-        preparedStatement.executeUpdate()
-      }
+      addResultToJobResultTable(con = con, schema = schema, jobResult = jobResult, showSQL = showSQL)
     }
   }
 
-  override suspend fun deleteBefore(ts: LocalDateTime) {
-    // language=PostgreSQL
-    val sql = "DELETE FROM $schema.job_result WHERE start_time < ?"
+  override fun deleteBefore(ts: LocalDateTime) {
+    ds.connection.use { con ->
+      deleteResultsOnJobResultSnapshotTableBefore(con = con, schema = schema, ts = ts, showSQL = showSQL)
 
-    if (showSQL) {
-      println(
-        """
-        |PgJobResultsRepo.deleteBefore SQL:
-        |  $sql
-      """.trimMargin()
-      )
-    }
-
-    ds.connection.use { connection ->
-      connection.prepareStatement(sql).use { preparedStatement ->
-        preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
-
-        preparedStatement.executeUpdate()
-      }
+      deleteResultsOnJobResultTableBefore(con = con, schema = schema, ts = ts, showSQL = showSQL)
     }
   }
 
-  override suspend fun getLatestResults(): Set<JobResult> {
+  override fun getLatestResults(): Set<JobResult> {
     // language=PostgreSQL
     val sql = """
       |-- noinspection SqlResolve @ schema/"jr"
-      |  SELECT DISTINCT ON (jr.job_name)  
+      |  SELECT
       |    jr.job_name
       |  , jr.start_time
       |  , jr.end_time
       |  , jr.result
       |  , jr.error_message
       |  , jr.skip_reason
-      |  FROM $schema.job_result AS jr
-      |  ORDER BY 
-      |    jr.job_name
-      |  , jr.start_time DESC
+      |  FROM $schema.job_result_snapshot AS jr
     """.trimMargin()
 
     if (showSQL) {
@@ -174,7 +57,7 @@ data class PgJobResultsRepo(
         """
         |PgJobResultsRepo.getLatestResult SQL:
         |  ${sql.split("\n").joinToString("\n    ")}
-      """.trimMargin()
+        """.trimMargin()
       )
     }
 
@@ -223,5 +106,301 @@ data class PgJobResultsRepo(
         return jobResults.toSet()
       }
     }
+  }
+}
+
+private fun addResultToJobResultTable(
+  con: Connection,
+  schema: String,
+  jobResult: JobResult,
+  showSQL: Boolean,
+) {
+  // language=PostgreSQL
+  val sql = """
+    |  INSERT INTO $schema.job_result (
+    |    job_name
+    |  , start_time
+    |  , end_time
+    |  , result
+    |  , error_message
+    |  , skip_reason
+    |  ) VALUES (
+    |    ?
+    |  , ?
+    |  , ?
+    |  , ?
+    |  , ?
+    |  , ?
+    |  )
+  """.trimMargin()
+
+  if (showSQL) {
+    println(
+      """
+      |PgJobResultsRepo addResultToJobResultTable:
+      |  ${sql.split("\n").joinToString("\n    ")}
+      """.trimMargin()
+    )
+  }
+
+  con.prepareStatement(sql.trimIndent()).use { preparedStatement ->
+    val resultName: String = when (jobResult) {
+      is JobResult.Cancelled -> "cancelled"
+      is JobResult.Failed -> "failed"
+      is JobResult.Skipped -> "skipped"
+      is JobResult.Successful -> "successful"
+    }
+
+    val errorMessage: String? = if (jobResult is JobResult.Failed) {
+      jobResult.errorMessage
+    } else {
+      null
+    }
+
+    val skipReason: String? = if (jobResult is JobResult.Skipped) {
+      jobResult.reason
+    } else {
+      null
+    }
+
+    preparedStatement.setString(1, jobResult.jobName)
+    preparedStatement.setTimestamp(2, Timestamp.valueOf(jobResult.start))
+    preparedStatement.setTimestamp(3, Timestamp.valueOf(jobResult.end))
+    preparedStatement.setString(4, resultName)
+    if (errorMessage == null) {
+      preparedStatement.setNull(5, Types.VARCHAR)
+    } else {
+      preparedStatement.setString(5, errorMessage)
+    }
+    if (skipReason == null) {
+      preparedStatement.setNull(6, Types.VARCHAR)
+    } else {
+      preparedStatement.setString(6, skipReason)
+    }
+
+    preparedStatement.executeUpdate()
+  }
+}
+
+private fun addResultToJobResultSnapshotTable(
+  con: Connection,
+  schema: String,
+  jobResult: JobResult,
+  showSQL: Boolean,
+) {
+  // language=PostgreSQL
+  val sql = """
+    |  INSERT INTO $schema.job_result_snapshot (
+    |    job_name
+    |  , start_time
+    |  , end_time
+    |  , result
+    |  , error_message
+    |  , skip_reason
+    |  ) VALUES (
+    |    ?
+    |  , ?
+    |  , ?
+    |  , ?
+    |  , ?
+    |  , ?
+    |  ) 
+    |  ON CONFLICT (job_name)
+    |  DO UPDATE 
+    |  SET
+    |      start_time = EXCLUDED.start_time
+    |    , end_time = EXCLUDED.end_time 
+    |    , result = EXCLUDED.result
+    |    , error_message = EXCLUDED.error_message
+    |    , skip_reason = EXCLUDED.skip_reason
+    |  WHERE 
+    |    (
+    |      $schema.job_result_snapshot.start_time
+    |    , $schema.job_result_snapshot.end_time
+    |    , $schema.job_result_snapshot.result
+    |    , $schema.job_result_snapshot.error_message
+    |    , $schema.job_result_snapshot.skip_reason
+    |    ) IS DISTINCT FROM (
+    |      EXCLUDED.start_time 
+    |    , EXCLUDED.end_time
+    |    , EXCLUDED.result
+    |    , EXCLUDED.error_message
+    |    , EXCLUDED.skip_reason
+    |    )
+  """.trimMargin()
+
+  if (showSQL) {
+    println(
+      """
+      |PgJobResultsRepo addResultToJobResultSnapshotTable:
+      |  ${sql.split("\n").joinToString("\n    ")}
+      """.trimMargin()
+    )
+  }
+
+  con.prepareStatement(sql.trimIndent()).use { preparedStatement ->
+    val resultName: String = when (jobResult) {
+      is JobResult.Cancelled -> "cancelled"
+      is JobResult.Failed -> "failed"
+      is JobResult.Skipped -> "skipped"
+      is JobResult.Successful -> "successful"
+    }
+
+    val errorMessage: String? = if (jobResult is JobResult.Failed) {
+      jobResult.errorMessage
+    } else {
+      null
+    }
+
+    val skipReason: String? = if (jobResult is JobResult.Skipped) {
+      jobResult.reason
+    } else {
+      null
+    }
+
+    preparedStatement.setString(1, jobResult.jobName)
+    preparedStatement.setTimestamp(2, Timestamp.valueOf(jobResult.start))
+    preparedStatement.setTimestamp(3, Timestamp.valueOf(jobResult.end))
+    preparedStatement.setString(4, resultName)
+    if (errorMessage == null) {
+      preparedStatement.setNull(5, Types.VARCHAR)
+    } else {
+      preparedStatement.setString(5, errorMessage)
+    }
+    if (skipReason == null) {
+      preparedStatement.setNull(6, Types.VARCHAR)
+    } else {
+      preparedStatement.setString(6, skipReason)
+    }
+
+    preparedStatement.executeUpdate()
+  }
+}
+
+private fun createJobResultTable(con: Connection, schema: String, showSQL: Boolean) =
+  con.createStatement().use { statement ->
+    // language=PostgreSQL
+    val createTableSQL = """
+      |CREATE TABLE IF NOT EXISTS $schema.job_result (
+      |  id SERIAL PRIMARY KEY
+      |, job_name TEXT NOT NULL CHECK (LENGTH(job_name) > 0)
+      |, start_time TIMESTAMP NOT NULL
+      |, end_time TIMESTAMP NOT NULL CHECK (end_time >= start_time)
+      |, result TEXT NOT NULL CHECK (
+      |    result IN ('cancelled', 'failed', 'skipped', 'successful')
+      |  )
+      |, error_message TEXT NULL CHECK (
+      |    (result = 'failed' AND LENGTH(error_message) > 0)
+      |    OR (result <> 'failed' AND error_message IS NULL)
+      |  )
+      |, skip_reason TEXT NULL CHECK (
+      |    (result = 'skipped' AND LENGTH(skip_reason) > 0)
+      |    OR (result <> 'skipped' AND skip_reason IS NULL)
+      |  )
+      |)
+    """.trimMargin()
+
+    if (showSQL) {
+      println(
+        """
+          |PgJobResultsRepo createJobResultTable:
+          |  ${createTableSQL.split("\n").joinToString("\n  ")} 
+        """.trimMargin()
+      )
+    }
+
+    statement.execute(createTableSQL.trimIndent())
+
+    // language=PostgreSQL
+    val startTimeIndexSQL = """
+      |-- noinspection SqlResolve @ table/"job_result"
+      |CREATE INDEX IF NOT EXISTS ix_job_result_job_name_start_time 
+      |  ON $schema.job_result (job_name, start_time)
+    """.trimMargin()
+
+    if (showSQL) {
+      println(
+        """
+          |PgJobResultsRepo.init startTimeIndexSQL:
+          |  ${startTimeIndexSQL.split("\n").joinToString("\n  ")} 
+        """.trimMargin()
+      )
+    }
+
+    statement.execute(startTimeIndexSQL.trimIndent())
+  }
+
+private fun createJobResultSnapshotTable(con: Connection, schema: String, showSQL: Boolean) =
+  con.createStatement().use { statement ->
+    // language=PostgreSQL
+    val createTableSQL = """
+      |CREATE TABLE IF NOT EXISTS $schema.job_result_snapshot (
+      |  job_name TEXT NOT NULL CHECK (LENGTH(job_name) > 0)
+      |, start_time TIMESTAMP NOT NULL
+      |, end_time TIMESTAMP NOT NULL CHECK (end_time >= start_time)
+      |, result TEXT NOT NULL CHECK (
+      |    result IN ('cancelled', 'failed', 'skipped', 'successful')
+      |  )
+      |, error_message TEXT NULL CHECK (
+      |    (result = 'failed' AND LENGTH(error_message) > 0)
+      |    OR (result <> 'failed' AND error_message IS NULL)
+      |  )
+      |, skip_reason TEXT NULL CHECK (
+      |    (result = 'skipped' AND LENGTH(skip_reason) > 0)
+      |    OR (result <> 'skipped' AND skip_reason IS NULL)
+      |  )
+      |, PRIMARY KEY (job_name)
+      |)
+    """.trimMargin()
+
+    if (showSQL) {
+      println(
+        """
+            |PgJobResultsRepo createJobResultSnapshotTable:
+            |  ${createTableSQL.split("\n").joinToString("\n  ")} 
+        """.trimMargin()
+      )
+    }
+
+    statement.execute(createTableSQL.trimIndent())
+  }
+
+fun deleteResultsOnJobResultTableBefore(con: Connection, schema: String, ts: LocalDateTime, showSQL: Boolean) {
+  // language=PostgreSQL
+  val sql = "DELETE FROM $schema.job_result WHERE start_time < ?"
+
+  if (showSQL) {
+    println(
+      """
+        |PgJobResultsRepo deleteResultsOnJobResultTableBefore:
+        |  $sql
+      """.trimMargin()
+    )
+  }
+
+  con.prepareStatement(sql).use { preparedStatement ->
+    preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
+
+    preparedStatement.executeUpdate()
+  }
+}
+
+fun deleteResultsOnJobResultSnapshotTableBefore(con: Connection, schema: String, ts: LocalDateTime, showSQL: Boolean) {
+  // language=PostgreSQL
+  val sql = "DELETE FROM $schema.job_result_snapshot WHERE start_time < ?"
+
+  if (showSQL) {
+    println(
+      """
+        |PgJobResultsRepo deleteResultsOnJobResultSnapshotTableBefore:
+        |  $sql
+      """.trimMargin()
+    )
+  }
+
+  con.prepareStatement(sql).use { preparedStatement ->
+    preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
+
+    preparedStatement.executeUpdate()
   }
 }

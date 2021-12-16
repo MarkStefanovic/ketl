@@ -15,6 +15,8 @@ class PgJobResultsRepoTest {
     ds.connection.use { connection ->
       connection.createStatement().use { statement ->
         statement.execute("DROP TABLE IF EXISTS ketl.job_result")
+
+        statement.execute("DROP TABLE IF EXISTS ketl.job_result_snapshot")
       }
 
       val repo = PgJobResultsRepo(schema = "ketl", showSQL = true, ds = ds)
@@ -32,23 +34,25 @@ class PgJobResultsRepoTest {
       )
 
       runBlocking {
+        repo.createTables()
+
         repo.add(jobResult)
 
         val results = repo.getLatestResults()
 
-        assertEquals(expected = results.count(), actual = 1)
+        assertEquals(expected = 1, actual = results.count())
 
         repo.add(jobResult2)
 
         val resultsAfterSecondAdd = repo.getLatestResults()
 
-        assertEquals(expected = resultsAfterSecondAdd.count(), actual = 2)
+        assertEquals(expected = 2, actual = resultsAfterSecondAdd.count())
 
         repo.deleteBefore(LocalDateTime.of(2011, 1, 1, 1, 1, 1))
 
         val resultsAfterDelete = repo.getLatestResults()
 
-        assertEquals(expected = resultsAfterDelete.count(), actual = 1)
+        assertEquals(expected = 1, actual = resultsAfterDelete.count())
       }
     }
   }

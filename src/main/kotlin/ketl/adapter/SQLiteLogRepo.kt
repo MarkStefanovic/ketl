@@ -1,41 +1,42 @@
-@file:Suppress("SqlDialectInspection")
-
 package ketl.adapter
 
+import ketl.domain.DbLogRepo
 import ketl.domain.LogMessage
-import ketl.domain.LogRepo
-import java.sql.Connection
 import java.sql.Timestamp
 import java.time.LocalDateTime
 import javax.sql.DataSource
 
-class SQLiteLogRepo(private val ds: DataSource) : LogRepo {
+class SQLiteLogRepo(private val ds: DataSource) : DbLogRepo {
 
-  fun createLogTable(con: Connection) {
-    val createTableSQL = """
-      |CREATE TABLE IF NOT EXISTS log (
-      |  id INTEGER PRIMARY KEY 
-      |, log_name TEXT NOT NULL CHECK (LENGTH(log_name) > 0)
-      |, log_level TEXT NOT NULL CHECK (log_level IN ('debug', 'error', 'info', 'warning'))
-      |, message TEXT NOT NULL CHECK (LENGTH(message) > 0)
-      |, ts DATETIME NOT NULL DEFAULT current_timestamp 
-      |)
-    """.trimMargin()
+  override fun createTable() {
+    ds.connection.use { con ->
+      // language=SQLite
+      val createTableSQL = """
+        |CREATE TABLE IF NOT EXISTS log (
+        |  id INTEGER PRIMARY KEY 
+        |, log_name TEXT NOT NULL CHECK (LENGTH(log_name) > 0)
+        |, log_level TEXT NOT NULL CHECK (log_level IN ('debug', 'error', 'info', 'warning'))
+        |, message TEXT NOT NULL CHECK (LENGTH(message) > 0)
+        |, ts DATETIME NOT NULL DEFAULT current_timestamp 
+        |)
+      """.trimMargin()
 
-    val createTsIndexSQL = "CREATE INDEX IF NOT EXISTS ix_log_ts ON log (ts)"
+      val createTsIndexSQL = "CREATE INDEX IF NOT EXISTS ix_log_ts ON log (ts)"
 
-    val createLogNameIndexSQL = "CREATE INDEX IF NOT EXISTS ix_log_log_name ON log (log_name)"
+      val createLogNameIndexSQL = "CREATE INDEX IF NOT EXISTS ix_log_log_name ON log (log_name)"
 
-    con.createStatement().use { statement ->
-      statement.executeUpdate(createTableSQL)
+      con.createStatement().use { statement ->
+        statement.executeUpdate(createTableSQL)
 
-      statement.executeUpdate(createTsIndexSQL)
+        statement.executeUpdate(createTsIndexSQL)
 
-      statement.executeUpdate(createLogNameIndexSQL)
+        statement.executeUpdate(createLogNameIndexSQL)
+      }
     }
   }
 
   override fun add(message: LogMessage) {
+    // language=SQLite
     val sql = """
       |INSERT INTO log (
       |  log_name
@@ -62,9 +63,10 @@ class SQLiteLogRepo(private val ds: DataSource) : LogRepo {
   }
 
   override fun deleteBefore(ts: LocalDateTime) {
+    // language=SQLite
     val sql = """
       |DELETE FROM log 
-      |WHERE log.ts < ?
+      |WHERE ts < ?
     """.trimMargin()
     ds.connection.use { con ->
       con.prepareStatement(sql).use { preparedStatement ->

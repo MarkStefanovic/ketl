@@ -1,10 +1,7 @@
-@file:Suppress("SqlDialectInspection")
-
 package ketl.adapter
 
+import ketl.domain.DbLogRepo
 import ketl.domain.LogMessage
-import ketl.domain.LogRepo
-import java.sql.Connection
 import java.sql.Timestamp
 import java.time.LocalDateTime
 import javax.sql.DataSource
@@ -12,10 +9,12 @@ import javax.sql.DataSource
 class PgLogRepo(
   private val ds: DataSource,
   private val schema: String,
-) : LogRepo {
+) : DbLogRepo {
 
-  fun createLogTable(con: Connection) {
-    val createTableSQL = """
+  override fun createTable() {
+    ds.connection.use { con ->
+      // language=PostgreSQL
+      val createTableSQL = """
       |CREATE TABLE IF NOT EXISTS $schema.log (
       |  id SERIAL PRIMARY KEY
       |, log_name TEXT NOT NULL CHECK (LENGTH(log_name) > 0)
@@ -25,20 +24,24 @@ class PgLogRepo(
       |)
     """.trimMargin()
 
-    val createTsIndexSQL = "CREATE INDEX IF NOT EXISTS ix_log_ts ON $schema.log (ts)"
+      // language=PostgreSQL
+      val createTsIndexSQL = "CREATE INDEX IF NOT EXISTS ix_log_ts ON $schema.log (ts)"
 
-    val createLogNameIndexSQL = "CREATE INDEX IF NOT EXISTS ix_log_log_name ON $schema.log (log_name)"
+      // language=PostgreSQL
+      val createLogNameIndexSQL = "CREATE INDEX IF NOT EXISTS ix_log_log_name ON $schema.log (log_name)"
 
-    con.createStatement().use { statement ->
-      statement.executeUpdate(createTableSQL)
+      con.createStatement().use { statement ->
+        statement.executeUpdate(createTableSQL)
 
-      statement.executeUpdate(createTsIndexSQL)
+        statement.executeUpdate(createTsIndexSQL)
 
-      statement.executeUpdate(createLogNameIndexSQL)
+        statement.executeUpdate(createLogNameIndexSQL)
+      }
     }
   }
 
   override fun add(message: LogMessage) {
+    // language=PostgreSQL
     val sql = """
       |INSERT INTO $schema.log (
       |  log_name
@@ -65,9 +68,10 @@ class PgLogRepo(
   }
 
   override fun deleteBefore(ts: LocalDateTime) {
+    // language=PostgreSQL
     val sql = """
       |DELETE FROM $schema.log 
-      |WHERE log.ts < ?
+      |WHERE ts < ?
     """.trimMargin()
     ds.connection.use { con ->
       con.prepareStatement(sql).use { preparedStatement ->
