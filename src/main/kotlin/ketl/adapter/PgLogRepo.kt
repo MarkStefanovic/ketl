@@ -1,7 +1,9 @@
 package ketl.adapter
 
 import ketl.domain.DbLogRepo
+import ketl.domain.Log
 import ketl.domain.LogMessage
+import ketl.domain.NamedLog
 import java.sql.Timestamp
 import java.time.LocalDateTime
 import javax.sql.DataSource
@@ -9,9 +11,10 @@ import javax.sql.DataSource
 class PgLogRepo(
   private val ds: DataSource,
   private val schema: String,
+  private val log: Log = NamedLog("PgLogRepo"),
 ) : DbLogRepo {
 
-  override fun createTable() {
+  override suspend fun createTable() {
     ds.connection.use { con ->
       // language=PostgreSQL
       val createTableSQL = """
@@ -24,11 +27,25 @@ class PgLogRepo(
       |)
     """.trimMargin()
 
-      // language=PostgreSQL
-      val createTsIndexSQL = "CREATE INDEX IF NOT EXISTS ix_log_ts ON $schema.log (ts)"
+      log.debug(createTableSQL)
 
       // language=PostgreSQL
-      val createLogNameIndexSQL = "CREATE INDEX IF NOT EXISTS ix_log_log_name ON $schema.log (log_name)"
+      val createTsIndexSQL = """
+        |-- noinspection SqlResolve @ table/"log"
+        |CREATE INDEX IF NOT EXISTS ix_log_ts 
+        |  ON $schema.log (ts)
+      """.trimMargin()
+
+      log.debug(createTsIndexSQL)
+
+      // language=PostgreSQL
+      val createLogNameIndexSQL = """
+        |-- noinspection SqlResolve @ table/"log"
+        |CREATE INDEX IF NOT EXISTS ix_log_log_name 
+        |  ON $schema.log (log_name)
+      """.trimMargin()
+
+      log.debug(createLogNameIndexSQL)
 
       con.createStatement().use { statement ->
         statement.executeUpdate(createTableSQL)
@@ -40,7 +57,7 @@ class PgLogRepo(
     }
   }
 
-  override fun add(message: LogMessage) {
+  override suspend fun add(message: LogMessage) {
     // language=PostgreSQL
     val sql = """
       |INSERT INTO $schema.log (
@@ -55,6 +72,9 @@ class PgLogRepo(
       |, ?
       |)
     """.trimMargin()
+
+    log.debug(sql)
+
     ds.connection.use { con ->
       con.prepareStatement(sql).use { preparedStatement ->
         preparedStatement.setString(1, message.loggerName)
@@ -67,12 +87,15 @@ class PgLogRepo(
     }
   }
 
-  override fun deleteBefore(ts: LocalDateTime) {
+  override suspend fun deleteBefore(ts: LocalDateTime) {
     // language=PostgreSQL
     val sql = """
       |DELETE FROM $schema.log 
       |WHERE ts < ?
     """.trimMargin()
+
+    log.debug(sql)
+
     ds.connection.use { con ->
       con.prepareStatement(sql).use { preparedStatement ->
         preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))

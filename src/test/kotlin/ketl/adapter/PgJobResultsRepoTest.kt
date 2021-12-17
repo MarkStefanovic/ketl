@@ -19,7 +19,7 @@ class PgJobResultsRepoTest {
         statement.execute("DROP TABLE IF EXISTS ketl.job_result_snapshot")
       }
 
-      val repo = PgJobResultsRepo(schema = "ketl", showSQL = true, ds = ds)
+      val repo = PgJobResultsRepo(schema = "ketl", ds = ds)
 
       val jobResult = JobResult.Successful(
         jobName = "test_job",

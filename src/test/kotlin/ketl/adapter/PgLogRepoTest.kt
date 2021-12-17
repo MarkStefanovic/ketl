@@ -2,6 +2,7 @@ package ketl.adapter
 
 import ketl.domain.LogLevel
 import ketl.domain.LogMessage
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import testutil.pgDataSource
 import java.time.LocalDateTime
@@ -44,7 +45,7 @@ private fun getLogMessages(ds: DataSource): List<LogMessage> {
 
 class PgLogRepoTest {
   @Test
-  fun add_happy_path() {
+  fun add_happy_path() = runBlocking {
     val ds = pgDataSource()
 
     val repo = PgLogRepo(ds = ds, schema = "ketl")
@@ -72,7 +73,7 @@ class PgLogRepoTest {
   }
 
   @Test
-  fun deleteBefore_happy_path() {
+  fun deleteBefore_happy_path() = runBlocking {
     val ds = pgDataSource()
 
     val repo = PgLogRepo(ds = ds, schema = "ketl")
