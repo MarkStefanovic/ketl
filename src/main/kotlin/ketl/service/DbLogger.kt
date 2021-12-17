@@ -22,7 +22,7 @@ suspend fun dbLogger(
   minLogLevel: LogLevel = LogLevel.Info,
   durationToKeep: Duration = Duration.days(5),
   runCleanupEvery: Duration = Duration.minutes(30),
-  repo: DbLogRepo = SQLiteLogRepo(ds = ds)
+  repo: DbLogRepo = SQLiteLogRepo(ds = ds),
 ) {
   var lastCleanup = LocalDateTime.now()
 
