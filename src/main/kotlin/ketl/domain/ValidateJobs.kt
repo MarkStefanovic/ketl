@@ -19,6 +19,12 @@ value class JobValidationResult(val value: Map<String, Set<String>>) {
         }
         .joinToString("\n")
 
+  val invalidJobNames: Set<String>
+    get() = value.filterValues { it.isNotEmpty() }.keys
+
+  val validJobNames: Set<String>
+    get() = value.filterValues { it.isEmpty() }.keys
+
   override fun toString(): String =
     "JobValidationResult [\n" +
       value

@@ -73,6 +73,16 @@ class ValidateJobsTest {
     )
 
     assertEquals(
+      expected = setOf("test_job_3"),
+      actual = validationResult.validJobNames,
+    )
+
+    assertEquals(
+      expected = setOf("test_job_1", "test_job_2"),
+      actual = validationResult.invalidJobNames,
+    )
+
+    assertEquals(
       expected = """
         |Job Validation Errors:
         |  test_job_1:

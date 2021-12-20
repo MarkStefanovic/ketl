@@ -16,9 +16,22 @@ suspend fun jobScheduler(
   results: JobResults,
   statuses: JobStatuses,
   timeBetweenScans: Duration,
+  log: NamedLog = NamedLog("jobScheduler"),
 ) {
   while (coroutineContext.isActive) {
-    jobService.getActiveJobs().forEach { job ->
+    val activeJobs = jobService.getActiveJobs()
+
+    val validationResult = validateJobs(activeJobs)
+
+    if (validationResult.hasErrors) {
+      log.error(validationResult.errorMessage)
+    }
+
+    val validJobNames = validationResult.validJobNames
+
+    val validJobs = activeJobs.filter { it.name in validJobNames }
+
+    validJobs.forEach { job ->
       if (job.name !in statuses.state.runningJobs()) {
         val ready = job.schedule.ready(
           lastRun = results.getLatestResultForJob(job.name)?.end,
