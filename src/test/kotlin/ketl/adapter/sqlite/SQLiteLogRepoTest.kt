@@ -1,6 +1,6 @@
 @file:Suppress("SqlDialectInspection")
 
-package ketl.adapter
+package ketl.adapter.sqlite
 
 import ketl.domain.LogLevel
 import ketl.domain.LogMessage

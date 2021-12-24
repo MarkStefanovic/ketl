@@ -1,4 +1,4 @@
-package ketl.adapter
+package ketl.adapter.sqlite
 
 import ketl.domain.JobResult
 import kotlinx.coroutines.runBlocking

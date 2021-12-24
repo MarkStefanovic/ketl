@@ -9,7 +9,6 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
-import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.Executors
 import kotlin.time.ExperimentalTime
@@ -24,7 +23,7 @@ suspend fun jobStatusLogger(
 
   val latestStatuses = mutableMapOf<String, JobStatus>()
 
-  jobStatuses.stream.statuses.collect { status: JobStatus ->
+  jobStatuses.stream.collect { status: JobStatus ->
     val statuses = withContext(dispatcher) {
       latestStatuses[status.jobName] = status
       latestStatuses
@@ -47,7 +46,6 @@ suspend fun jobStatusLogger(
     val skipped = statusCSV(statuses = namesStatusMap, status = "Skipped")
     val failed = statusCSV(statuses = namesStatusMap, status = "Failed")
     val dtFormatter = DateTimeFormatter.ofPattern("M/d @ hh:mm:ss a")
-    val ts = LocalDateTime.now().format(dtFormatter)
     val errors = statuses.values.filterIsInstance<JobStatus.Failed>().sortedBy { it.jobName }
     val errorMessages =
       if (errors.isEmpty()) {
@@ -59,12 +57,11 @@ suspend fun jobStatusLogger(
       }
     log.info(
       """
-        |$ts  
-        |  Running: $running
-        |  Success: $success
-        |  Skipped: $skipped
-        |  Failed:  $failed
-        |  $errorMessages
+      |Running: $running
+      |Success: $success
+      |Skipped: $skipped
+      |Failed:  $failed
+      |  ${errorMessages.split("\n").joinToString("\n  ")}
       """.trimMargin(),
     )
   }

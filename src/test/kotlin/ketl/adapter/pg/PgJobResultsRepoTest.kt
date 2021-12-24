@@ -1,4 +1,4 @@
-package ketl.adapter
+package ketl.adapter.pg
 
 import ketl.domain.JobResult
 import kotlinx.coroutines.runBlocking

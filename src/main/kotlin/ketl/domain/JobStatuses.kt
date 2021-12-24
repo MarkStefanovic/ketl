@@ -8,12 +8,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.withContext
 import java.util.concurrent.Executors
 
-interface JobStatusStream {
-  val statuses: SharedFlow<JobStatus>
-
-  suspend fun add(jobStatus: JobStatus)
-}
-
 interface JobStatusState {
   suspend fun add(status: JobStatus)
 
@@ -23,27 +17,11 @@ interface JobStatusState {
 }
 
 interface JobStatuses {
-  val stream: JobStatusStream
+  val stream: SharedFlow<JobStatus>
 
   val state: JobStatusState
 
-  suspend fun add(jobStatus: JobStatus) {
-    stream.add(jobStatus)
-    state.add(jobStatus)
-  }
-}
-
-object DefaultJobStatusStream : JobStatusStream {
-  private val _stream = MutableSharedFlow<JobStatus>(
-    extraBufferCapacity = 100,
-    onBufferOverflow = BufferOverflow.DROP_OLDEST,
-  )
-
-  override val statuses = _stream.asSharedFlow()
-
-  override suspend fun add(jobStatus: JobStatus) {
-    _stream.emit(jobStatus)
-  }
+  suspend fun add(jobStatus: JobStatus)
 }
 
 object DefaultJobStatusState : JobStatusState {
@@ -65,7 +43,17 @@ object DefaultJobStatusState : JobStatusState {
 }
 
 object DefaultJobStatuses : JobStatuses {
-  override val stream: JobStatusStream = DefaultJobStatusStream
+  private val _stream = MutableSharedFlow<JobStatus>(
+    extraBufferCapacity = 100,
+    onBufferOverflow = BufferOverflow.DROP_OLDEST,
+  )
+
+  override val stream = _stream.asSharedFlow()
+
+  override suspend fun add(jobStatus: JobStatus) {
+    _stream.emit(jobStatus)
+    state.add(jobStatus)
+  }
 
   override val state: JobStatusState = DefaultJobStatusState
 }

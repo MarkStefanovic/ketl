@@ -1,6 +1,7 @@
 package ketl.service
 
-import ketl.adapter.SQLiteJobResultsRepo
+import ketl.adapter.pg.PgJobResultsRepo
+import ketl.adapter.sqlite.SQLiteJobResultsRepo
 import ketl.domain.DbJobResultsRepo
 import ketl.domain.DefaultJobResults
 import ketl.domain.JobResults
@@ -13,12 +14,38 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.toJavaDuration
 
 @ExperimentalTime
-suspend fun jobResultsDbLogger(
+suspend fun pgJobResultsLogger(
+  ds: DataSource,
+  schema: String = "ketl",
+  jobResults: JobResults = DefaultJobResults,
+  durationToKeep: Duration = Duration.days(5),
+  runCleanupEvery: Duration = Duration.minutes(30),
+) = dbJobResultsLogger(
+  jobResults = jobResults,
+  durationToKeep = durationToKeep,
+  runCleanupEvery = runCleanupEvery,
+  repo = PgJobResultsRepo(ds = ds, schema = schema),
+)
+
+@ExperimentalTime
+suspend fun sqliteJobResultsLogger(
   ds: DataSource,
   jobResults: JobResults = DefaultJobResults,
   durationToKeep: Duration = Duration.days(5),
   runCleanupEvery: Duration = Duration.minutes(30),
-  repo: DbJobResultsRepo = SQLiteJobResultsRepo(ds = ds),
+) = dbJobResultsLogger(
+  jobResults = jobResults,
+  durationToKeep = durationToKeep,
+  runCleanupEvery = runCleanupEvery,
+  repo = SQLiteJobResultsRepo(ds = ds),
+)
+
+@ExperimentalTime
+private suspend fun dbJobResultsLogger(
+  jobResults: JobResults,
+  durationToKeep: Duration,
+  runCleanupEvery: Duration,
+  repo: DbJobResultsRepo,
 ) {
   var lastCleanup = LocalDateTime.now()
 

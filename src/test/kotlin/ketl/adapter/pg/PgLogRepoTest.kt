@@ -1,4 +1,4 @@
-package ketl.adapter
+package ketl.adapter.pg
 
 import ketl.domain.LogLevel
 import ketl.domain.LogMessage

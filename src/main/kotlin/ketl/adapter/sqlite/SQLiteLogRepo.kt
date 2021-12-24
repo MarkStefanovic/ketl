@@ -1,4 +1,4 @@
-package ketl.adapter
+package ketl.adapter.sqlite
 
 import ketl.domain.DbLogRepo
 import ketl.domain.Log

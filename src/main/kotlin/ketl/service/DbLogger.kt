@@ -1,6 +1,7 @@
 package ketl.service
 
-import ketl.adapter.SQLiteLogRepo
+import ketl.adapter.pg.PgLogRepo
+import ketl.adapter.sqlite.SQLiteLogRepo
 import ketl.domain.DbLogRepo
 import ketl.domain.LogLevel
 import ketl.domain.LogMessage
@@ -16,13 +17,43 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.toJavaDuration
 
 @ExperimentalTime
-suspend fun dbLogger(
+suspend fun pgLogger(
+  ds: DataSource,
+  schema: String = "ketl",
+  logMessages: SharedFlow<LogMessage> = LogMessages.stream,
+  minLogLevel: LogLevel = LogLevel.Info,
+  durationToKeep: Duration = Duration.days(5),
+  runCleanupEvery: Duration = Duration.minutes(30),
+) = dbLogger(
+  logMessages = logMessages,
+  minLogLevel = minLogLevel,
+  durationToKeep = durationToKeep,
+  runCleanupEvery = runCleanupEvery,
+  repo = PgLogRepo(ds = ds, schema = schema),
+)
+
+@ExperimentalTime
+suspend fun sqliteLogger(
   ds: DataSource,
   logMessages: SharedFlow<LogMessage> = LogMessages.stream,
   minLogLevel: LogLevel = LogLevel.Info,
   durationToKeep: Duration = Duration.days(5),
   runCleanupEvery: Duration = Duration.minutes(30),
-  repo: DbLogRepo = SQLiteLogRepo(ds = ds),
+) = dbLogger(
+  logMessages = logMessages,
+  minLogLevel = minLogLevel,
+  durationToKeep = durationToKeep,
+  runCleanupEvery = runCleanupEvery,
+  repo = SQLiteLogRepo(ds = ds),
+)
+
+@ExperimentalTime
+private suspend fun dbLogger(
+  repo: DbLogRepo,
+  logMessages: SharedFlow<LogMessage> = LogMessages.stream,
+  minLogLevel: LogLevel = LogLevel.Info,
+  durationToKeep: Duration = Duration.days(5),
+  runCleanupEvery: Duration = Duration.minutes(30),
 ) {
   var lastCleanup = LocalDateTime.now()
 

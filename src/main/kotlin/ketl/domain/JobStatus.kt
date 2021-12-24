@@ -3,28 +3,28 @@ package ketl.domain
 import java.time.LocalDateTime
 
 sealed class JobStatus(
-  val jobName: String,
-  val statusName: String,
-  val ts: LocalDateTime,
+  open val jobName: String,
+  open val statusName: String,
+  open val ts: LocalDateTime,
 ) {
   val isRunning: Boolean
     get() = this is Initial || this is Running
 
-  class Cancelled(jobName: String, ts: LocalDateTime) :
+  data class Cancelled(override val jobName: String, override val ts: LocalDateTime) :
     JobStatus(jobName = jobName, statusName = "cancelled", ts = ts)
 
-  class Initial(jobName: String, ts: LocalDateTime) :
+  data class Initial(override val jobName: String, override val ts: LocalDateTime) :
     JobStatus(jobName = jobName, statusName = "initial", ts = ts)
 
-  class Running(jobName: String, ts: LocalDateTime) :
+  data class Running(override val jobName: String, override val ts: LocalDateTime) :
     JobStatus(jobName = jobName, statusName = "running", ts = ts)
 
-  class Skipped(jobName: String, ts: LocalDateTime, val reason: String) :
+  data class Skipped(override val jobName: String, override val ts: LocalDateTime, val reason: String) :
     JobStatus(jobName = jobName, statusName = "skipped", ts = ts)
 
-  class Success(jobName: String, ts: LocalDateTime) :
+  data class Success(override val jobName: String, override val ts: LocalDateTime) :
     JobStatus(jobName = jobName, statusName = "successful", ts = ts)
 
-  class Failed(jobName: String, ts: LocalDateTime, val errorMessage: String) :
+  data class Failed(override val jobName: String, override val ts: LocalDateTime, val errorMessage: String) :
     JobStatus(jobName = jobName, statusName = "failed", ts = ts)
 }
