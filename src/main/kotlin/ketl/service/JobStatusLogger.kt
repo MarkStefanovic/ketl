@@ -61,7 +61,7 @@ suspend fun jobStatusLogger(
       |Success: $success
       |Skipped: $skipped
       |Failed:  $failed
-      |  ${errorMessages.split("\n").joinToString("\n  ")}
+      |  $errorMessages
       """.trimMargin(),
     )
   }
