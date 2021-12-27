@@ -23,6 +23,23 @@ class PgJobStatusRepo(
     }
   }
 
+  override suspend fun cancelRunningJobs() {
+    //language=PostgreSQL
+    val sql = """
+      |UPDATE $schema.job_status_snapshot
+      |SET status = 'cancelled'
+      |WHERE status = 'running'
+    """.trimMargin()
+
+    log.debug(sql)
+
+    ds.connection.use { connection ->
+      connection.createStatement().use { statement ->
+        statement.execute(sql)
+      }
+    }
+  }
+
   override suspend fun currentStatus(): Set<JobStatus> {
     //language=PostgreSQL
     val sql = """

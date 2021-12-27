@@ -12,6 +12,7 @@ import org.sqlite.SQLiteDataSource
 import java.time.LocalDateTime
 import javax.sql.DataSource
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 private fun sqliteDatasource() = SQLiteDataSource().apply {
   url = "jdbc:sqlite:file:test?mode=memory&cache=shared"
@@ -58,8 +59,6 @@ class SQLiteJobStatusRepoTest {
     }
 
     sqliteDatasource().let { ds ->
-      val repo = SQLiteJobStatusRepo(ds = ds)
-
       ds.connection.use { connection ->
         connection.createStatement().use { statement ->
           //language=SQLite
@@ -67,6 +66,8 @@ class SQLiteJobStatusRepoTest {
           //language=SQLite
           statement.executeUpdate("DROP TABLE IF EXISTS ketl_job_status_snapshot")
         }
+
+        val repo = SQLiteJobStatusRepo(ds = ds)
 
         repo.createTables()
 
@@ -86,14 +87,12 @@ class SQLiteJobStatusRepoTest {
   }
 
   @Test
-  fun deleteBefore_happy_path() = runBlocking {
+  fun cancelRunningJobs_happy_path() = runBlocking {
     GlobalScope.launch {
       consoleLogger(minLogLevel = LogLevel.Debug)
     }
 
     sqliteDatasource().let { ds ->
-      val repo = SQLiteJobStatusRepo(ds = ds)
-
       ds.connection.use { connection ->
         connection.createStatement().use { statement ->
           //language=SQLite
@@ -101,6 +100,50 @@ class SQLiteJobStatusRepoTest {
           //language=SQLite
           statement.executeUpdate("DROP TABLE IF EXISTS ketl_job_status_snapshot")
         }
+
+        val repo = SQLiteJobStatusRepo(ds = ds)
+
+        repo.createTables()
+
+        val jobStatus1 = JobStatus.Success(jobName = "test_job_1", ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5))
+        val jobStatus2 = JobStatus.Running(jobName = "test_job_2", ts = LocalDateTime.of(2011, 1, 2, 3, 4, 5))
+        val jobStatus3 = JobStatus.Failed(jobName = "test_job_3", ts = LocalDateTime.of(2010, 2, 2, 3, 4, 5), errorMessage = "Whoops!")
+
+        repo.add(jobStatus1)
+        repo.add(jobStatus2)
+        repo.add(jobStatus3)
+
+        val initialJobStatusSnapshots = getJobStatusSnapshotEntries(ds)
+
+        assertEquals(expected = 3, actual = initialJobStatusSnapshots.count())
+
+        repo.cancelRunningJobs()
+
+        val snapshotEntries = getJobStatusSnapshotEntries(ds)
+
+        assertTrue(snapshotEntries.all { it.statusName != "running" })
+
+        assertTrue(snapshotEntries.first { it.jobName == "test_job_2" }.statusName == "cancelled")
+      }
+    }
+  }
+
+  @Test
+  fun deleteBefore_happy_path() = runBlocking {
+    GlobalScope.launch {
+      consoleLogger(minLogLevel = LogLevel.Debug)
+    }
+
+    sqliteDatasource().let { ds ->
+      ds.connection.use { connection ->
+        connection.createStatement().use { statement ->
+          //language=SQLite
+          statement.executeUpdate("DROP TABLE IF EXISTS ketl_job_status")
+          //language=SQLite
+          statement.executeUpdate("DROP TABLE IF EXISTS ketl_job_status_snapshot")
+        }
+
+        val repo = SQLiteJobStatusRepo(ds = ds)
 
         repo.createTables()
 

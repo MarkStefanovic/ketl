@@ -13,6 +13,7 @@ import java.sql.Connection
 import java.time.LocalDateTime
 import javax.sql.DataSource
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 private fun getJobStatuses(ds: DataSource, tableName: String): Set<JobStatus> {
   //language=PostgreSQL
@@ -93,6 +94,42 @@ class PgJobStatusRepoTest {
         val jobStatusHistory = getJobStatusHistoricalEntries(ds)
 
         assertEquals(expected = setOf(jobStatus), actual = jobStatusHistory)
+      }
+    }
+  }
+
+  @Test
+  fun cancelRunningJobs_happy_path() = runBlocking {
+    GlobalScope.launch {
+      consoleLogger(minLogLevel = LogLevel.Debug)
+    }
+
+    pgDataSource().let { ds ->
+      val repo = PgJobStatusRepo(ds = ds, schema = "ketl")
+
+      ds.connection.use { connection ->
+        deleteTables(connection)
+        repo.createTables()
+
+        val jobStatus1 = JobStatus.Success(jobName = "test_job_1", ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5))
+        val jobStatus2 = JobStatus.Running(jobName = "test_job_2", ts = LocalDateTime.of(2011, 1, 2, 3, 4, 5))
+        val jobStatus3 = JobStatus.Failed(jobName = "test_job_3", ts = LocalDateTime.of(2010, 2, 2, 3, 4, 5), errorMessage = "Whoops!")
+
+        repo.add(jobStatus1)
+        repo.add(jobStatus2)
+        repo.add(jobStatus3)
+
+        val initialJobStatusSnapshots = getJobStatusSnapshotEntries(ds)
+
+        assertEquals(expected = 3, actual = initialJobStatusSnapshots.count())
+
+        repo.cancelRunningJobs()
+
+        val snapshotEntries = getJobStatusSnapshotEntries(ds)
+
+        assertTrue(snapshotEntries.all { it.statusName != "running" })
+
+        assertTrue(snapshotEntries.first { it.jobName == "test_job_2" }.statusName == "cancelled")
       }
     }
   }

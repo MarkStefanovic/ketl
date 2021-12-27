@@ -22,6 +22,24 @@ class SQLiteJobStatusRepo(
     }
   }
 
+  override suspend fun cancelRunningJobs() {
+    //language=SQLite
+    val sql = """
+      |-- noinspection SqlResolve @ table/"ketl_job_status_snapshot"
+      |UPDATE ketl_job_status_snapshot
+      |SET status = 'cancelled'
+      |WHERE status = 'running'
+    """.trimMargin()
+
+    log.debug(sql)
+
+    ds.connection.use { connection ->
+      connection.createStatement().use { statement ->
+        statement.execute(sql)
+      }
+    }
+  }
+
   override suspend fun currentStatus(): Set<JobStatus> {
     //language=SQLite
     val sql = """
@@ -57,7 +75,7 @@ class SQLiteJobStatusRepo(
       |  id SERIAL PRIMARY KEY
       |, job_name TEXT NOT NULL CHECK (LENGTH(job_name) > 0)
       |, status TEXT NOT NULL CHECK (
-      |    status IN ('cancelled', 'failed', 'skipped', 'successful')
+      |    status IN ('cancelled', 'failed', 'running', 'skipped', 'successful')
       |  )
       |, error_message TEXT NULL CHECK (
       |    (status = 'failed' AND LENGTH(error_message) > 0)
@@ -79,7 +97,7 @@ class SQLiteJobStatusRepo(
       |CREATE TABLE IF NOT EXISTS ketl_job_status_snapshot (
       |  job_name TEXT NOT NULL CHECK (LENGTH(job_name) > 0)
       |, status TEXT NOT NULL CHECK (
-      |    status IN ('cancelled', 'failed', 'skipped', 'successful')
+      |    status IN ('cancelled', 'failed', 'running', 'skipped', 'successful')
       |  )
       |, error_message TEXT NULL CHECK (
       |    (status = 'failed' AND LENGTH(error_message) > 0)
