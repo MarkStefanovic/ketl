@@ -185,6 +185,8 @@ suspend fun runWithRetry(
         )
     }
   } catch (e: Throwable) {
+    log.error("An exception occurred while running ${job.name}: ${e.message}\n${e.stackTraceToString()}")
+
     if (retries >= job.maxRetries) {
       JobResult.Failed(
         jobName = job.name,
@@ -193,7 +195,7 @@ suspend fun runWithRetry(
         errorMessage = e.stackTraceToString(),
       )
     } else {
-      log.info("${job.name} threw an exception, running retry ${retries + 1} of ${job.maxRetries}...")
+      log.info("${job.name} running retry ${retries + 1} of ${job.maxRetries}...")
 
       runWithRetry(
         job = job,
