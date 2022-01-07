@@ -185,7 +185,7 @@ suspend fun runWithRetry(
         )
     }
   } catch (e: Throwable) {
-    if (retries + 1 >= job.maxRetries) {
+    if (retries >= job.maxRetries) {
       JobResult.Failed(
         jobName = job.name,
         start = start,
@@ -194,6 +194,7 @@ suspend fun runWithRetry(
       )
     } else {
       log.info("${job.name} threw an exception, running retry ${retries + 1} of ${job.maxRetries}...")
+
       runWithRetry(
         job = job,
         log = log,
