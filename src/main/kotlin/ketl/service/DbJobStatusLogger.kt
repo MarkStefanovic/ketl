@@ -48,11 +48,11 @@ private suspend fun dbJobStatusLogger(
   durationToKeep: Duration = Duration.days(5),
   runCleanupEvery: Duration = Duration.minutes(30),
 ) {
+  repo.createTables()
+
   repo.cancelRunningJobs()
 
   var lastCleanup = LocalDateTime.now()
-
-  repo.createTables()
 
   repo.deleteBefore(LocalDateTime.now() - durationToKeep.toJavaDuration())
 

@@ -54,6 +54,7 @@ private suspend fun dbLogger(
   minLogLevel: LogLevel = LogLevel.Info,
   durationToKeep: Duration = Duration.days(5),
   runCleanupEvery: Duration = Duration.minutes(30),
+  excludeLogNames: Set<String> = setOf("jobStatusLogger", "ketl"),
 ) {
   var lastCleanup = LocalDateTime.now()
 
@@ -62,16 +63,18 @@ private suspend fun dbLogger(
   repo.deleteBefore(LocalDateTime.now() - durationToKeep.toJavaDuration())
 
   logMessages.collect { logMessage ->
-    if (logMessage.level gte minLogLevel) {
-      val timeSinceLastCleanup = lastCleanup.until(LocalDateTime.now(), ChronoUnit.SECONDS)
+    if (logMessage.loggerName !in excludeLogNames) {
+      if (logMessage.level gte minLogLevel) {
+        val timeSinceLastCleanup = lastCleanup.until(LocalDateTime.now(), ChronoUnit.SECONDS)
 
-      if (timeSinceLastCleanup > runCleanupEvery.inWholeSeconds) {
-        repo.deleteBefore(LocalDateTime.now() - durationToKeep.toJavaDuration())
+        if (timeSinceLastCleanup > runCleanupEvery.inWholeSeconds) {
+          repo.deleteBefore(LocalDateTime.now() - durationToKeep.toJavaDuration())
 
-        lastCleanup = LocalDateTime.now()
+          lastCleanup = LocalDateTime.now()
+        }
+
+        repo.add(logMessage)
       }
-
-      repo.add(logMessage)
     }
   }
 }
