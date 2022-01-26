@@ -2,13 +2,15 @@ package ketl.domain
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDateTime
+import java.util.concurrent.Executors
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
@@ -26,29 +28,33 @@ suspend fun jobRunner(
 ) = coroutineScope {
   val log = NamedLog("jobRunner")
 
+  val cappedDispatcher = Executors.newFixedThreadPool(maxSimultaneousJobs).asCoroutineDispatcher()
+
   while (coroutineContext.isActive) {
-    val runningJobs = statuses.state.runningJobs()
-    log.debug("Running jobs: $runningJobs")
+    val job = queue.pop()
 
-    while (statuses.state.runningJobs().count() < maxSimultaneousJobs) {
-      val job = queue.pop()
+    if (job == null) {
+      log.debug("No job was found in the queue.")
+    } else {
+      log.debug("Starting ${job.name}...")
+      val jobLog = NamedLog(name = job.name, stream = logMessages)
 
-      if (job == null) {
-        log.debug("No job was found in the queue.")
-      } else {
-        log.debug("Starting ${job.name}...")
-        val jobLog = NamedLog(name = job.name, stream = logMessages)
+      val asyncJob = launch(cappedDispatcher) {
+        runJob(
+          results = results,
+          statuses = statuses,
+          job = job,
+          log = jobLog,
+        )
+      }
 
-        launch(dispatcher) {
-          runJob(
-            results = results,
-            statuses = statuses,
-            job = job,
-            log = jobLog,
-          )
+      asyncJob.invokeOnCompletion { e ->
+        if (e != null) {
+          launch(dispatcher) {
+            log.error(e.stackTraceToString())
+          }
         }
       }
-      delay(1000)
     }
 
     log.debug("Waiting ${timeBetweenScans.inWholeSeconds} seconds to scan again.")
@@ -64,7 +70,7 @@ private suspend fun runJob(
   statuses: JobStatuses,
   log: Log,
   job: KETLJob,
-) = withTimeout(timeout = job.timeout) {
+) = withTimeoutOrNull(timeout = job.timeout) {
   val start = LocalDateTime.now()
 
   try {
