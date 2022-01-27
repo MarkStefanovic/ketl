@@ -7,7 +7,7 @@ plugins {
 group = "me.mes"
 version = "1.0-SNAPSHOT"
 
-val kotlinVersion: String = "1.5.31"
+val kotlinVersion = "1.5.31"
 
 repositories {
     mavenCentral()
@@ -31,22 +31,24 @@ kotlinter {
     indentSize = 2
 }
 
-tasks.test {
-    useJUnitPlatform()
-}
+tasks {
+    test {
+        useJUnitPlatform()
+    }
 
-tasks.compileJava {
-    targetCompatibility = "16"
-}
+    compileJava {
+        targetCompatibility = "16"
+    }
 
-tasks.compileKotlin {
-    kotlinOptions.jvmTarget = "16"
-}
+    compileKotlin {
+        kotlinOptions.jvmTarget = "16"
+    }
 
-tasks.compileTestJava {
-    targetCompatibility = "16"
-}
+    compileTestJava {
+        targetCompatibility = "16"
+    }
 
-tasks.compileTestKotlin {
-    kotlinOptions.jvmTarget = "16"
+    compileTestKotlin {
+        kotlinOptions.jvmTarget = "16"
+    }
 }
