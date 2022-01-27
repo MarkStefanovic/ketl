@@ -86,6 +86,7 @@ suspend fun start(
         launch(dispatcher) {
           log.info("An exception occurred while closing child coroutines: ${e.stackTraceToString()}")
         }
+        throw e
       }
     }
 
@@ -115,7 +116,11 @@ fun restartJarOnCrash(
   timeBetweenRestarts: Duration = Duration.seconds(10),
 ) {
   while (true) {
-    runJar(jarPath = jarPath, jvmArgs = jvmArgs)
+    try {
+      runJar(jarPath = jarPath, jvmArgs = jvmArgs)
+    } catch (e: Exception) {
+      e.printStackTrace()
+    }
     println("Process crashed.  Waiting $timeBetweenRestarts and then restarting...")
     Thread.sleep(timeBetweenRestarts.inWholeMilliseconds)
   }

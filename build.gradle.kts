@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "1.5.31"
+    kotlin("jvm") version "1.6.10"
     id("org.jmailen.kotlinter") version "3.4.5"
     id( "org.jetbrains.kotlin.plugin.serialization") version "1.4.30"
 }
@@ -14,7 +14,7 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2-native-mt")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
 
     testImplementation("org.jetbrains.kotlin:kotlin-test:$kotlinVersion")
 
@@ -22,9 +22,9 @@ dependencies {
 
     testImplementation("org.postgresql", "postgresql", "42.2.16")
 
-    testImplementation("com.zaxxer:HikariCP:5.0.0")
+    testImplementation("com.zaxxer:HikariCP:5.0.1")
 
-    testImplementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.1")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
 }
 
 kotlinter {

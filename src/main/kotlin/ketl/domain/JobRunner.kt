@@ -2,7 +2,7 @@ package ketl.domain
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
@@ -10,11 +10,11 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDateTime
-import java.util.concurrent.Executors
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
+@ExperimentalCoroutinesApi
 @ExperimentalTime
 @DelicateCoroutinesApi
 suspend fun jobRunner(
@@ -28,8 +28,6 @@ suspend fun jobRunner(
 ) = coroutineScope {
   val log = NamedLog("jobRunner")
 
-  val cappedDispatcher = Executors.newFixedThreadPool(maxSimultaneousJobs).asCoroutineDispatcher()
-
   while (coroutineContext.isActive) {
     val job = queue.pop()
 
@@ -39,21 +37,13 @@ suspend fun jobRunner(
       log.debug("Starting ${job.name}...")
       val jobLog = NamedLog(name = job.name, stream = logMessages)
 
-      val asyncJob = launch(cappedDispatcher) {
+      launch(dispatcher.limitedParallelism(maxSimultaneousJobs)) {
         runJob(
           results = results,
           statuses = statuses,
           job = job,
           log = jobLog,
         )
-      }
-
-      asyncJob.invokeOnCompletion { e ->
-        if (e != null) {
-          launch(dispatcher) {
-            log.error(e.stackTraceToString())
-          }
-        }
       }
     }
 
@@ -129,7 +119,7 @@ private suspend fun runJob(
 
     log.debug("Finished ${job.name}")
   } catch (ce: CancellationException) {
-    log.error("${job.name} cancelled: ${ce.message}")
+    throw ce
   } catch (e: Exception) {
     statuses.add(
       JobStatus.Failed(
@@ -176,21 +166,21 @@ suspend fun runWithRetry(
           )
         }
       }
-      is Status.Skipped ->
-        JobResult.Skipped(
-          jobName = job.name,
-          start = start,
-          end = LocalDateTime.now(),
-          reason = status.reason,
-        )
-      Status.Success ->
-        JobResult.Successful(
-          jobName = job.name,
-          start = start,
-          end = LocalDateTime.now(),
-        )
+      is Status.Skipped -> JobResult.Skipped(
+        jobName = job.name,
+        start = start,
+        end = LocalDateTime.now(),
+        reason = status.reason,
+      )
+      Status.Success -> JobResult.Successful(
+        jobName = job.name,
+        start = start,
+        end = LocalDateTime.now(),
+      )
     }
-  } catch (e: Throwable) {
+  } catch (ce: CancellationException) {
+    throw ce
+  } catch (e: Exception) {
     log.error("An exception occurred while running ${job.name}: ${e.message}\n${e.stackTraceToString()}")
 
     if (retries >= job.maxRetries) {
