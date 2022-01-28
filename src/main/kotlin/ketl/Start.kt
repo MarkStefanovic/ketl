@@ -133,8 +133,6 @@ fun start(
       )
     } catch (e: Throwable) {
       if (restartOnFailure) {
-        e.printStackTrace()
-
         println("Restarting in $timeBetweenRestarts...")
 
         delay(timeBetweenRestarts)
