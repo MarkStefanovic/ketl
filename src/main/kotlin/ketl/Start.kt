@@ -20,17 +20,22 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelChildren
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
-import java.io.File
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.supervisorScope
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 
+@ExperimentalCoroutinesApi
 @DelicateCoroutinesApi
 @ExperimentalTime
-suspend fun start(
+suspend fun run(
   jobService: JobService,
   logMessages: SharedFlow<LogMessage> = LogMessages.stream,
   log: Log = NamedLog(name = "ketl", stream = logMessages),
@@ -39,12 +44,12 @@ suspend fun start(
   jobResults: JobResults = DefaultJobResults,
   maxSimultaneousJobs: Int = 10,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
-  timeBetweenScans: Duration = Duration.seconds(10),
-) = coroutineScope {
+  timeBetweenScans: Duration = 10.seconds,
+) = supervisorScope {
   try {
     log.info("Starting services...")
 
-    launch(dispatcher) {
+    val job = launch(dispatcher) {
       jobScheduler(
         jobService = jobService,
         queue = jobQueue,
@@ -62,7 +67,7 @@ suspend fun start(
       )
     }
 
-    val job = launch(dispatcher) {
+    launch(dispatcher) {
       jobRunner(
         queue = jobQueue,
         results = jobResults,
@@ -97,31 +102,45 @@ suspend fun start(
   }
 }
 
-private fun runJar(jarPath: File, jvmArgs: List<String> = emptyList()) {
-  val javaHome = System.getProperty("java.home")
-  val javaPath = javaHome + File.separator + "bin" + File.separator + "java"
-  val cmd = arrayListOf(javaPath, "-jar", jarPath.path, *jvmArgs.toTypedArray())
-  ProcessBuilder(cmd)
-    .directory(File(jarPath.parent))
-    .redirectOutput(ProcessBuilder.Redirect.INHERIT)
-    .redirectError(ProcessBuilder.Redirect.INHERIT)
-    .start()
-    .waitFor()
-}
-
+@ExperimentalCoroutinesApi
+@DelicateCoroutinesApi
 @ExperimentalTime
-fun restartJarOnCrash(
-  jarPath: File,
-  jvmArgs: List<String> = emptyList(),
-  timeBetweenRestarts: Duration = Duration.seconds(10),
-) {
+fun start(
+  jobService: JobService,
+  logMessages: SharedFlow<LogMessage> = LogMessages.stream,
+  log: Log = NamedLog(name = "ketl", stream = logMessages),
+  jobQueue: JobQueue = DefaultJobQueue,
+  jobStatuses: JobStatuses = DefaultJobStatuses,
+  jobResults: JobResults = DefaultJobResults,
+  maxSimultaneousJobs: Int = 10,
+  dispatcher: CoroutineDispatcher = Dispatchers.Default,
+  timeBetweenScans: Duration = 10.seconds,
+  restartOnFailure: Boolean = true,
+  timeBetweenRestarts: Duration = 10.minutes,
+) = runBlocking {
   while (true) {
     try {
-      runJar(jarPath = jarPath, jvmArgs = jvmArgs)
-    } catch (e: Exception) {
-      e.printStackTrace()
+      run(
+        jobService = jobService,
+        logMessages = logMessages,
+        log = log,
+        jobQueue = jobQueue,
+        jobStatuses = jobStatuses,
+        jobResults = jobResults,
+        maxSimultaneousJobs = maxSimultaneousJobs,
+        dispatcher = dispatcher,
+        timeBetweenScans = timeBetweenScans,
+      )
+    } catch (e: Throwable) {
+      if (restartOnFailure) {
+        e.printStackTrace()
+
+        println("Restarting in $timeBetweenRestarts...")
+
+        delay(timeBetweenRestarts)
+      } else {
+        throw e
+      }
     }
-    println("Process crashed.  Waiting $timeBetweenRestarts and then restarting...")
-    Thread.sleep(timeBetweenRestarts.inWholeMilliseconds)
   }
 }

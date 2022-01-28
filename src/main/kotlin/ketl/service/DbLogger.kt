@@ -8,11 +8,12 @@ import ketl.domain.LogMessage
 import ketl.domain.LogMessages
 import ketl.domain.gte
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.collect
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import javax.sql.DataSource
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 import kotlin.time.toJavaDuration
 
@@ -22,8 +23,8 @@ suspend fun pgLogger(
   schema: String = "ketl",
   logMessages: SharedFlow<LogMessage> = LogMessages.stream,
   minLogLevel: LogLevel = LogLevel.Info,
-  durationToKeep: Duration = Duration.days(5),
-  runCleanupEvery: Duration = Duration.minutes(30),
+  durationToKeep: Duration = 5.days,
+  runCleanupEvery: Duration = 30.minutes,
 ) = dbLogger(
   logMessages = logMessages,
   minLogLevel = minLogLevel,
@@ -37,8 +38,8 @@ suspend fun sqliteLogger(
   ds: DataSource,
   logMessages: SharedFlow<LogMessage> = LogMessages.stream,
   minLogLevel: LogLevel = LogLevel.Info,
-  durationToKeep: Duration = Duration.days(5),
-  runCleanupEvery: Duration = Duration.minutes(30),
+  durationToKeep: Duration = 5.days,
+  runCleanupEvery: Duration = 30.minutes,
 ) = dbLogger(
   logMessages = logMessages,
   minLogLevel = minLogLevel,
@@ -52,8 +53,8 @@ private suspend fun dbLogger(
   repo: DbLogRepo,
   logMessages: SharedFlow<LogMessage> = LogMessages.stream,
   minLogLevel: LogLevel = LogLevel.Info,
-  durationToKeep: Duration = Duration.days(5),
-  runCleanupEvery: Duration = Duration.minutes(30),
+  durationToKeep: Duration = 5.days,
+  runCleanupEvery: Duration = 30.minutes,
   excludeLogNames: Set<String> = setOf("jobStatusLogger", "ketl"),
 ) {
   var lastCleanup = LocalDateTime.now()

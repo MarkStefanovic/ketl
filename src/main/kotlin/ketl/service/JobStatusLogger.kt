@@ -7,7 +7,6 @@ import ketl.domain.Log
 import ketl.domain.NamedLog
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.Executors

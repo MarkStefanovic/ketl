@@ -5,11 +5,12 @@ import ketl.adapter.sqlite.SQLiteJobResultsRepo
 import ketl.domain.DbJobResultsRepo
 import ketl.domain.DefaultJobResults
 import ketl.domain.JobResults
-import kotlinx.coroutines.flow.collect
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import javax.sql.DataSource
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 import kotlin.time.toJavaDuration
 
@@ -18,8 +19,8 @@ suspend fun pgJobResultsLogger(
   ds: DataSource,
   schema: String = "ketl",
   jobResults: JobResults = DefaultJobResults,
-  durationToKeep: Duration = Duration.days(5),
-  runCleanupEvery: Duration = Duration.minutes(30),
+  durationToKeep: Duration = 5.days,
+  runCleanupEvery: Duration = 30.minutes,
 ) = dbJobResultsLogger(
   jobResults = jobResults,
   durationToKeep = durationToKeep,
@@ -31,8 +32,8 @@ suspend fun pgJobResultsLogger(
 suspend fun sqliteJobResultsLogger(
   ds: DataSource,
   jobResults: JobResults = DefaultJobResults,
-  durationToKeep: Duration = Duration.days(5),
-  runCleanupEvery: Duration = Duration.minutes(30),
+  durationToKeep: Duration = 5.days,
+  runCleanupEvery: Duration = 30.minutes,
 ) = dbJobResultsLogger(
   jobResults = jobResults,
   durationToKeep = durationToKeep,
