@@ -28,6 +28,8 @@ suspend fun jobRunner(
 ) = coroutineScope {
   val log = NamedLog("jobRunner")
 
+  val limitedDispatcher = dispatcher.limitedParallelism(maxSimultaneousJobs)
+
   while (coroutineContext.isActive) {
     val job = queue.pop()
 
@@ -37,7 +39,7 @@ suspend fun jobRunner(
       log.debug("Starting ${job.name}...")
       val jobLog = NamedLog(name = job.name, stream = logMessages)
 
-      launch(dispatcher.limitedParallelism(maxSimultaneousJobs)) {
+      launch(limitedDispatcher) {
         runJob(
           results = results,
           statuses = statuses,

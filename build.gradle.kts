@@ -7,8 +7,6 @@ plugins {
 group = "me.mes"
 version = "1.0-SNAPSHOT"
 
-val kotlinVersion = "1.5.31"
-
 repositories {
     mavenCentral()
 }
@@ -16,11 +14,11 @@ repositories {
 dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
 
-    testImplementation("org.jetbrains.kotlin:kotlin-test:$kotlinVersion")
+    testImplementation("org.jetbrains.kotlin:kotlin-test:1.5.31")
 
     testImplementation("org.xerial:sqlite-jdbc:3.36.0.2")
 
-    testImplementation("org.postgresql", "postgresql", "42.2.16")
+    testImplementation("org.postgresql:postgresql:42.3.1")
 
     testImplementation("com.zaxxer:HikariCP:5.0.1")
 
