@@ -2,10 +2,11 @@ package ketl.service
 
 import ketl.adapter.pg.PgJobStatusRepo
 import ketl.adapter.sqlite.SQLiteJobStatusRepo
-import ketl.domain.DbJobStatusRepo
+import ketl.domain.DbDialect
 import ketl.domain.JobStatus
 import ketl.domain.JobStatuses
-import ketl.domain.Log
+import ketl.domain.LogMessages
+import ketl.domain.NamedLog
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import javax.sql.DataSource
@@ -16,41 +17,27 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.toJavaDuration
 
 @ExperimentalTime
-suspend fun pgJobStatusLogger(
+suspend fun dbJobStatusLogger(
   ds: DataSource,
-  schema: String = "ketl",
-  log: Log,
+  dbDialect: DbDialect,
+  schema: String? = "ketl",
   jobStatuses: JobStatuses,
-  durationToKeep: Duration = 5.days,
-  runCleanupEvery: Duration = 30.minutes,
-) = dbJobStatusLogger(
-  jobStatuses = jobStatuses,
-  durationToKeep = durationToKeep,
-  runCleanupEvery = runCleanupEvery,
-  repo = PgJobStatusRepo(schema = schema, ds = ds, log = log)
-)
-
-@ExperimentalTime
-suspend fun sqliteJobStatusLogger(
-  ds: DataSource,
-  jobStatuses: JobStatuses,
-  log: Log,
-  durationToKeep: Duration = 5.days,
-  runCleanupEvery: Duration = 30.minutes,
-) = dbJobStatusLogger(
-  jobStatuses = jobStatuses,
-  durationToKeep = durationToKeep,
-  runCleanupEvery = runCleanupEvery,
-  repo = SQLiteJobStatusRepo(ds = ds, log = log)
-)
-
-@ExperimentalTime
-private suspend fun dbJobStatusLogger(
-  repo: DbJobStatusRepo,
-  jobStatuses: JobStatuses,
+  logMessages: LogMessages,
   durationToKeep: Duration = 5.days,
   runCleanupEvery: Duration = 30.minutes,
 ) {
+  val repo = when (dbDialect) {
+    DbDialect.PostgreSQL -> PgJobStatusRepo(
+      schema = schema ?: "public",
+      ds = ds,
+      log = NamedLog(name = "pgJobStatusRepo", logMessages = logMessages)
+    )
+    DbDialect.SQLite -> SQLiteJobStatusRepo(
+      ds = ds,
+      log = NamedLog(name = "sqliteJobStatusRepo", logMessages = logMessages)
+    )
+  }
+
   repo.createTables()
 
   repo.cancelRunningJobs()

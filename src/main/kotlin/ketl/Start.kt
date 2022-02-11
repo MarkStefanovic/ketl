@@ -2,13 +2,12 @@
 
 package ketl
 
+import ketl.domain.DbDialect
 import ketl.domain.DefaultJobQueue
 import ketl.domain.DefaultJobResults
 import ketl.domain.DefaultJobStatuses
-import ketl.domain.JobQueue
 import ketl.domain.JobResults
 import ketl.domain.JobService
-import ketl.domain.JobStatuses
 import ketl.domain.KETLErrror
 import ketl.domain.Log
 import ketl.domain.LogLevel
@@ -17,6 +16,9 @@ import ketl.domain.NamedLog
 import ketl.domain.jobRunner
 import ketl.domain.jobScheduler
 import ketl.service.consoleLogger
+import ketl.service.dbJobResultsLogger
+import ketl.service.dbJobStatusLogger
+import ketl.service.dbLogger
 import ketl.service.jobStatusCleaner
 import ketl.service.jobStatusLogger
 import kotlinx.coroutines.CancellationException
@@ -24,72 +26,19 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelChildren
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
+import javax.sql.DataSource
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
-
-@ExperimentalCoroutinesApi
-@DelicateCoroutinesApi
-@ExperimentalTime
-suspend fun run(
-  jobService: JobService,
-  logMessages: LogMessages,
-  log: Log,
-  jobQueue: JobQueue,
-  jobStatuses: JobStatuses,
-  jobResults: JobResults,
-  maxSimultaneousJobs: Int = 10,
-  dispatcher: CoroutineDispatcher = Dispatchers.Default,
-  timeBetweenScans: Duration = 10.seconds,
-) = coroutineScope {
-  try {
-    log.info("Starting services...")
-
-    launch(dispatcher) {
-      jobScheduler(
-        log = NamedLog(name = "jobScheduler", logMessages = logMessages),
-        jobService = jobService,
-        queue = jobQueue,
-        results = jobResults,
-        statuses = jobStatuses,
-        timeBetweenScans = timeBetweenScans,
-      )
-    }
-
-    launch(dispatcher) {
-      jobStatusCleaner(
-        log = NamedLog(name = "jobStatusCleaner", logMessages = logMessages),
-        jobService = jobService,
-        jobStatuses = jobStatuses,
-        timeBetweenScans = timeBetweenScans,
-      )
-    }
-
-    launch(dispatcher) {
-      jobRunner(
-        queue = jobQueue,
-        results = jobResults,
-        statuses = jobStatuses,
-        logMessages = logMessages,
-        dispatcher = dispatcher,
-        maxSimultaneousJobs = maxSimultaneousJobs,
-        timeBetweenScans = timeBetweenScans,
-      )
-    }
-  } catch (e: Throwable) {
-    log.info(e.stackTraceToString())
-    throw e
-  }
-}
 
 suspend fun startHeartbeat(
   log: Log,
@@ -122,6 +71,9 @@ suspend fun startHeartbeat(
 @ExperimentalTime
 fun start(
   jobService: JobService,
+  logDs: DataSource?,
+  logDialect: DbDialect?,
+  logSchema: String?,
   maxSimultaneousJobs: Int = 10,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
   timeBetweenScans: Duration = 10.seconds,
@@ -130,43 +82,22 @@ fun start(
   logJobMessagesToConsole: Boolean = false,
   logJobStatusChanges: Boolean = false,
 ) = runBlocking {
+  if (logDs != null) {
+    require(logDialect != null) {
+      "If a logDs is provided, then logDialect is required."
+    }
+  }
+
   while (true) {
     val logMessages = LogMessages()
-    val jobStatuses = DefaultJobStatuses()
-
-    if (logJobStatusChanges) {
-      launch {
-        jobStatusLogger(
-          jobStatuses = jobStatuses,
-          log = NamedLog(name = "jobStatusLogger", logMessages = logMessages),
-        )
-      }
-    }
-
-    if (logJobMessagesToConsole) {
-      launch {
-        consoleLogger(
-          minLogLevel = LogLevel.Debug,
-          logMessages = logMessages.stream,
-        )
-      }
-    }
-
     val log = NamedLog(name = "ketl", logMessages = logMessages)
-    val jobResults = DefaultJobResults()
 
     try {
-      val job = run(
-        jobService = jobService,
-        logMessages = logMessages,
-        log = log,
-        jobQueue = DefaultJobQueue(),
-        jobStatuses = jobStatuses,
-        jobResults = jobResults,
-        maxSimultaneousJobs = maxSimultaneousJobs,
-        dispatcher = dispatcher,
-        timeBetweenScans = timeBetweenScans,
-      )
+      val jobStatuses = DefaultJobStatuses()
+      val jobResults = DefaultJobResults()
+      val jobQueue = DefaultJobQueue()
+
+      val job = Job()
 
       job.invokeOnCompletion {
         try {
@@ -183,12 +114,96 @@ fun start(
         }
       }
 
-      startHeartbeat(
-        log = NamedLog(name = "heartbeat", logMessages = logMessages),
-        jobResults = jobResults,
-        maxTimeToWait = 15.minutes,
-        timeBetweenChecks = 5.minutes,
-      )
+      launch(job) {
+        jobScheduler(
+          log = NamedLog(name = "jobScheduler", logMessages = logMessages),
+          jobService = jobService,
+          queue = jobQueue,
+          results = jobResults,
+          statuses = jobStatuses,
+          timeBetweenScans = timeBetweenScans,
+        )
+      }
+
+      launch(job) {
+        jobStatusCleaner(
+          log = NamedLog(name = "jobStatusCleaner", logMessages = logMessages),
+          jobService = jobService,
+          jobStatuses = jobStatuses,
+          timeBetweenScans = timeBetweenScans,
+        )
+      }
+
+      launch(job) {
+        jobRunner(
+          queue = jobQueue,
+          results = jobResults,
+          statuses = jobStatuses,
+          logMessages = logMessages,
+          dispatcher = dispatcher,
+          maxSimultaneousJobs = maxSimultaneousJobs,
+          timeBetweenScans = timeBetweenScans,
+        )
+      }
+
+      launch(job) {
+        startHeartbeat(
+          log = NamedLog(name = "heartbeat", logMessages = logMessages),
+          jobResults = jobResults,
+          maxTimeToWait = 15.minutes,
+          timeBetweenChecks = 5.minutes,
+        )
+      }
+
+      if (logJobMessagesToConsole) {
+        launch(job) {
+          consoleLogger(
+            minLogLevel = LogLevel.Debug,
+            logMessages = logMessages.stream,
+          )
+        }
+      }
+
+      if (logDs != null) {
+        launch(job) {
+          dbLogger(
+            dbDialect = logDialect!!,
+            ds = logDs,
+            schema = logSchema,
+            minLogLevel = LogLevel.Info,
+            logMessages = logMessages,
+          )
+        }
+
+        launch(job) {
+          dbJobResultsLogger(
+            dbDialect = logDialect!!,
+            ds = logDs,
+            schema = logSchema,
+            logMessages = logMessages,
+            jobResults = jobResults,
+          )
+        }
+      }
+
+      if (logJobStatusChanges) {
+        launch(job) {
+          jobStatusLogger(
+            jobStatuses = jobStatuses,
+            log = NamedLog(name = "jobStatusLogger", logMessages = logMessages),
+          )
+        }
+
+        if (logDs != null) {
+          dbJobStatusLogger(
+            ds = logDs,
+            dbDialect = logDialect!!,
+            schema = logSchema,
+            jobStatuses = jobStatuses,
+            logMessages = logMessages,
+          )
+        }
+      }
 
       job.join()
     } catch (e: Throwable) {

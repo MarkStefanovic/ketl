@@ -2,9 +2,10 @@ package ketl.service
 
 import ketl.adapter.pg.PgJobResultsRepo
 import ketl.adapter.sqlite.SQLiteJobResultsRepo
-import ketl.domain.DbJobResultsRepo
+import ketl.domain.DbDialect
 import ketl.domain.JobResults
-import ketl.domain.Log
+import ketl.domain.LogMessages
+import ketl.domain.NamedLog
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import javax.sql.DataSource
@@ -15,41 +16,27 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.toJavaDuration
 
 @ExperimentalTime
-suspend fun pgJobResultsLogger(
+suspend fun dbJobResultsLogger(
+  dbDialect: DbDialect,
   ds: DataSource,
-  schema: String = "ketl",
+  schema: String? = "ketl",
+  logMessages: LogMessages,
   jobResults: JobResults,
-  log: Log,
   durationToKeep: Duration = 5.days,
   runCleanupEvery: Duration = 30.minutes,
-) = dbJobResultsLogger(
-  jobResults = jobResults,
-  durationToKeep = durationToKeep,
-  runCleanupEvery = runCleanupEvery,
-  repo = PgJobResultsRepo(ds = ds, schema = schema, log = log),
-)
-
-@ExperimentalTime
-suspend fun sqliteJobResultsLogger(
-  ds: DataSource,
-  jobResults: JobResults,
-  log: Log,
-  durationToKeep: Duration = 5.days,
-  runCleanupEvery: Duration = 30.minutes,
-) = dbJobResultsLogger(
-  jobResults = jobResults,
-  durationToKeep = durationToKeep,
-  runCleanupEvery = runCleanupEvery,
-  repo = SQLiteJobResultsRepo(ds = ds, log = log),
-)
-
-@ExperimentalTime
-private suspend fun dbJobResultsLogger(
-  jobResults: JobResults,
-  durationToKeep: Duration,
-  runCleanupEvery: Duration,
-  repo: DbJobResultsRepo,
 ) {
+  val repo = when (dbDialect) {
+    DbDialect.PostgreSQL -> PgJobResultsRepo(
+      schema = schema ?: "public",
+      ds = ds,
+      log = NamedLog(name = "pgJobResultsRepo", logMessages = logMessages),
+    )
+    DbDialect.SQLite -> SQLiteJobResultsRepo(
+      ds = ds,
+      log = NamedLog(name = "sqliteJobResultsRepo", logMessages = logMessages),
+    )
+  }
+
   repo.createTables()
 
   var lastCleanup = LocalDateTime.now()
