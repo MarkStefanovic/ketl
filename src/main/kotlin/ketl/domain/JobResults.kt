@@ -11,6 +11,8 @@ import java.util.concurrent.Executors
 interface JobResults {
   val stream: SharedFlow<JobResult>
 
+  suspend fun getLatestResults(): Set<JobResult>
+
   suspend fun getLatestResultForJob(name: String): JobResult?
 
   suspend fun add(result: JobResult)
@@ -26,6 +28,11 @@ object DefaultJobResults : JobResults {
   private val dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
 
   private val results = mutableMapOf<String, JobResult>()
+
+  override suspend fun getLatestResults(): Set<JobResult> =
+    withContext(dispatcher) {
+      results.values.toSet()
+    }
 
   override suspend fun getLatestResultForJob(name: String): JobResult? =
     withContext(dispatcher) {
