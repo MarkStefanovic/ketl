@@ -1,4 +1,4 @@
-@file:Suppress("SqlResolve")
+@file:Suppress("SqlResolve", "SqlInsertValues")
 
 package ketl.adapter.sqlite
 
