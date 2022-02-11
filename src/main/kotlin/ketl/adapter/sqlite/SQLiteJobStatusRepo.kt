@@ -35,6 +35,8 @@ class SQLiteJobStatusRepo(
 
     ds.connection.use { connection ->
       connection.createStatement().use { statement ->
+        statement.queryTimeout = 60
+
         statement.execute(sql)
       }
     }
@@ -56,6 +58,8 @@ class SQLiteJobStatusRepo(
     val jobStatuses = mutableListOf<JobStatus>()
     ds.connection.use { connection ->
       connection.createStatement().use { statement ->
+        statement.queryTimeout = 60
+
         statement.executeQuery(sql).use { resultSet ->
           while (resultSet.next()) {
             val jobStatus = getJobStatusFromResultSet(resultSet)
@@ -116,6 +120,8 @@ class SQLiteJobStatusRepo(
 
     ds.connection.use { connection ->
       connection.createStatement().use { statement ->
+        statement.queryTimeout = 60
+
         statement.execute(createHistTableSQL)
         statement.execute(createSnapshotTableSQL)
       }
@@ -165,6 +171,8 @@ private suspend fun addToHistoricalTable(
   log.debug(sql)
 
   con.prepareStatement(sql).use { preparedStatement ->
+    preparedStatement.queryTimeout = 60
+
     preparedStatement.setString(1, jobStatus.jobName)
     preparedStatement.setString(2, jobStatus.statusName)
     if (jobStatus is JobStatus.Failed) {
@@ -209,6 +217,8 @@ private suspend fun addToSnapshotTable(
   log.debug(sql)
 
   con.prepareStatement(sql).use { preparedStatement ->
+    preparedStatement.queryTimeout = 60
+
     preparedStatement.setString(1, jobStatus.jobName)
     preparedStatement.setString(2, jobStatus.statusName)
     if (jobStatus is JobStatus.Failed) {
@@ -242,6 +252,8 @@ private suspend fun deleteBeforeTsOnHistoricalTable(
   log.debug(sql)
 
   con.prepareStatement(sql).use { preparedStatement ->
+    preparedStatement.queryTimeout = 60
+
     preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
 
     preparedStatement.execute()
@@ -263,6 +275,8 @@ private suspend fun deleteBeforeTsOnSnapshotTable(
   log.debug(sql)
 
   con.prepareStatement(sql).use { preparedStatement ->
+    preparedStatement.queryTimeout = 60
+
     preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
 
     preparedStatement.execute()

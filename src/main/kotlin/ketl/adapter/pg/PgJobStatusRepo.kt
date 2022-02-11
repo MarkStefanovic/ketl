@@ -35,6 +35,8 @@ class PgJobStatusRepo(
 
     ds.connection.use { connection ->
       connection.createStatement().use { statement ->
+        statement.queryTimeout = 60
+
         statement.execute(sql)
       }
     }
@@ -55,6 +57,8 @@ class PgJobStatusRepo(
     val jobStatuses = mutableListOf<JobStatus>()
     ds.connection.use { connection ->
       connection.createStatement().use { statement ->
+        statement.queryTimeout = 60
+
         statement.executeQuery(sql).use { resultSet ->
           val jobStatus = getJobStatusFromResultSet(resultSet)
           jobStatuses.add(jobStatus)
@@ -111,6 +115,8 @@ class PgJobStatusRepo(
 
     ds.connection.use { connection ->
       connection.createStatement().use { statement ->
+        statement.queryTimeout = 60
+
         statement.execute(createHistTableSQL)
         statement.execute(createSnapshotTableSQL)
       }
@@ -159,6 +165,8 @@ private suspend fun addToHistoricalTable(
   log.debug(sql)
 
   con.prepareStatement(sql).use { preparedStatement ->
+    preparedStatement.queryTimeout = 60
+
     preparedStatement.setString(1, jobStatus.jobName)
     preparedStatement.setString(2, jobStatus.statusName)
     if (jobStatus is JobStatus.Failed) {
@@ -221,6 +229,8 @@ private suspend fun addToSnapshotTable(
   log.debug(sql)
 
   con.prepareStatement(sql).use { preparedStatement ->
+    preparedStatement.queryTimeout = 60
+
     preparedStatement.setString(1, jobStatus.jobName)
     preparedStatement.setString(2, jobStatus.statusName)
     if (jobStatus is JobStatus.Failed) {
@@ -254,6 +264,8 @@ private suspend fun deleteBeforeTsOnHistoricalTable(
   log.debug(sql)
 
   con.prepareStatement(sql).use { preparedStatement ->
+    preparedStatement.queryTimeout = 60
+
     preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
 
     preparedStatement.execute()
@@ -268,13 +280,15 @@ private suspend fun deleteBeforeTsOnSnapshotTable(
 ) {
   //language=PostgreSQL
   val sql = """
-      |DELETE FROM $schema.job_status_snapshot
-      |WHERE ts < ?
-    """.trimMargin()
+    |DELETE FROM $schema.job_status_snapshot
+    |WHERE ts < ?
+  """.trimMargin()
 
   log.debug(sql)
 
   con.prepareStatement(sql).use { preparedStatement ->
+    preparedStatement.queryTimeout = 60
+
     preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
 
     preparedStatement.execute()

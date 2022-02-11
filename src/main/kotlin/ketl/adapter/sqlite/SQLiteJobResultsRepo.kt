@@ -57,6 +57,8 @@ data class SQLiteJobResultsRepo(
 
     ds.connection.use { connection ->
       connection.createStatement().use { statement ->
+        statement.queryTimeout = 60
+
         val result = statement.executeQuery(sql)
 
         val jobResults = mutableListOf<JobResult>()
@@ -131,6 +133,8 @@ private suspend fun addResultToJobResultTable(
   log.debug(sql)
 
   con.prepareStatement(sql).use { preparedStatement ->
+    preparedStatement.queryTimeout = 60
+
     val resultName: String = when (jobResult) {
       is JobResult.Cancelled -> "cancelled"
       is JobResult.Failed -> "failed"
@@ -211,6 +215,8 @@ private suspend fun addResultToJobResultSnapshotTable(
   log.debug(sql)
 
   con.prepareStatement(sql.trimIndent()).use { preparedStatement ->
+    preparedStatement.queryTimeout = 60
+
     val resultName: String = when (jobResult) {
       is JobResult.Cancelled -> "cancelled"
       is JobResult.Failed -> "failed"
@@ -254,6 +260,8 @@ private suspend fun createJobResultTable(
   log: Log = NamedLog("SQLiteJobResultsRepo.createJobResultTable"),
 ) =
   con.createStatement().use { statement ->
+    statement.queryTimeout = 60
+
     // language=SQLite
     val createTableSQL = """
       |CREATE TABLE IF NOT EXISTS ketl_job_result (
@@ -296,6 +304,8 @@ private suspend fun createJobResultSnapshotTable(
   log: Log = NamedLog("SQLiteJobResultsRepo.createJobResultSnapshotTable"),
 ) =
   con.createStatement().use { statement ->
+    statement.queryTimeout = 60
+
     // language=SQLite
     val sql = """
       |CREATE TABLE IF NOT EXISTS ketl_job_result_snapshot (
@@ -337,6 +347,8 @@ private suspend fun deleteResultsOnJobResultTableBefore(
   log.debug(sql)
 
   con.prepareStatement(sql).use { preparedStatement ->
+    preparedStatement.queryTimeout = 60
+
     preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
 
     preparedStatement.executeUpdate()
@@ -358,6 +370,8 @@ private suspend fun deleteResultsOnJobResultSnapshotTableBefore(
   log.debug(sql)
 
   con.prepareStatement(sql).use { preparedStatement ->
+    preparedStatement.queryTimeout = 60
+
     preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
 
     preparedStatement.executeUpdate()

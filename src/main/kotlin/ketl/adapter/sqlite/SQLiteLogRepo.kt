@@ -1,3 +1,5 @@
+@file:Suppress("SqlResolve")
+
 package ketl.adapter.sqlite
 
 import ketl.domain.DbLogRepo
@@ -30,7 +32,6 @@ class SQLiteLogRepo(
 
       // language=SQLite
       val createTsIndexSQL = """
-        |-- noinspection SqlResolve @ table/"log"
         |CREATE INDEX IF NOT EXISTS ix_log_ts 
         |  ON ketl_log (ts)
       """.trimMargin()
@@ -39,7 +40,6 @@ class SQLiteLogRepo(
 
       // language=SQLite
       val createLogNameIndexSQL = """
-        |-- noinspection SqlResolve @ table/"log"
         |CREATE INDEX IF NOT EXISTS ix_log_log_name 
         |  ON ketl_log (log_name)
       """.trimMargin()
@@ -47,6 +47,8 @@ class SQLiteLogRepo(
       log.debug(createLogNameIndexSQL)
 
       con.createStatement().use { statement ->
+        statement.queryTimeout = 60
+
         statement.executeUpdate(createTableSQL)
 
         statement.executeUpdate(createTsIndexSQL)
@@ -59,7 +61,6 @@ class SQLiteLogRepo(
   override suspend fun add(message: LogMessage) {
     // language=SQLite
     val sql = """
-      |-- noinspection SqlResolve @ table/"log"
       |INSERT INTO ketl_log (
       |  log_name
       |, log_level
@@ -77,6 +78,8 @@ class SQLiteLogRepo(
 
     ds.connection.use { con ->
       con.prepareStatement(sql).use { preparedStatement ->
+        preparedStatement.queryTimeout = 60
+
         preparedStatement.setString(1, message.loggerName)
         preparedStatement.setString(2, message.level.name.lowercase())
         preparedStatement.setString(3, message.message)
@@ -90,7 +93,6 @@ class SQLiteLogRepo(
   override suspend fun deleteBefore(ts: LocalDateTime) {
     // language=SQLite
     val sql = """
-      |-- noinspection SqlResolve @ table/"log"
       |DELETE FROM ketl_log 
       |WHERE ts < ?
     """.trimMargin()
@@ -99,6 +101,8 @@ class SQLiteLogRepo(
 
     ds.connection.use { con ->
       con.prepareStatement(sql).use { preparedStatement ->
+        preparedStatement.queryTimeout = 60
+
         preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
 
         preparedStatement.executeUpdate()

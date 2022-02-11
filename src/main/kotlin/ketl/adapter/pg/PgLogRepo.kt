@@ -48,6 +48,8 @@ class PgLogRepo(
       log.debug(createLogNameIndexSQL)
 
       con.createStatement().use { statement ->
+        statement.queryTimeout = 60
+
         statement.executeUpdate(createTableSQL)
 
         statement.executeUpdate(createTsIndexSQL)
@@ -77,6 +79,8 @@ class PgLogRepo(
 
     ds.connection.use { con ->
       con.prepareStatement(sql).use { preparedStatement ->
+        preparedStatement.queryTimeout = 60
+
         preparedStatement.setString(1, message.loggerName)
         preparedStatement.setString(2, message.level.name.lowercase())
         preparedStatement.setString(3, message.message)
@@ -98,6 +102,8 @@ class PgLogRepo(
 
     ds.connection.use { con ->
       con.prepareStatement(sql).use { preparedStatement ->
+        preparedStatement.queryTimeout = 60
+
         preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
 
         preparedStatement.executeUpdate()

@@ -58,6 +58,8 @@ data class PgJobResultsRepo(
 
     ds.connection.use { connection ->
       connection.createStatement().use { statement ->
+        statement.queryTimeout = 60
+
         val result = statement.executeQuery(sql)
 
         val jobResults = mutableListOf<JobResult>()
@@ -132,6 +134,8 @@ private suspend fun addResultToJobResultTable(
   log.debug(sql)
 
   con.prepareStatement(sql).use { preparedStatement ->
+    preparedStatement.queryTimeout = 60
+
     val resultName: String = when (jobResult) {
       is JobResult.Cancelled -> "cancelled"
       is JobResult.Failed -> "failed"
@@ -196,30 +200,32 @@ private suspend fun addResultToJobResultSnapshotTable(
     |ON CONFLICT (job_name)
     |DO UPDATE 
     |SET
-    |    start_time = EXCLUDED.start_time
-    |  , end_time = EXCLUDED.end_time 
-    |  , result = EXCLUDED.result
-    |  , error_message = EXCLUDED.error_message
-    |  , skip_reason = EXCLUDED.skip_reason
+    |  start_time = EXCLUDED.start_time
+    |, end_time = EXCLUDED.end_time 
+    |, result = EXCLUDED.result
+    |, error_message = EXCLUDED.error_message
+    |, skip_reason = EXCLUDED.skip_reason
     |WHERE 
-    |  (
-    |    $schema.job_result_snapshot.start_time
-    |  , $schema.job_result_snapshot.end_time
-    |  , $schema.job_result_snapshot.result
-    |  , $schema.job_result_snapshot.error_message
-    |  , $schema.job_result_snapshot.skip_reason
-    |  ) IS DISTINCT FROM (
-    |    EXCLUDED.start_time 
-    |  , EXCLUDED.end_time
-    |  , EXCLUDED.result
-    |  , EXCLUDED.error_message
-    |  , EXCLUDED.skip_reason
-    |  )
+    |(
+    |  $schema.job_result_snapshot.start_time
+    |, $schema.job_result_snapshot.end_time
+    |, $schema.job_result_snapshot.result
+    |, $schema.job_result_snapshot.error_message
+    |, $schema.job_result_snapshot.skip_reason
+    |) IS DISTINCT FROM (
+    |  EXCLUDED.start_time 
+    |, EXCLUDED.end_time
+    |, EXCLUDED.result
+    |, EXCLUDED.error_message
+    |, EXCLUDED.skip_reason
+    |)
   """.trimMargin()
 
   log.debug(sql)
 
   con.prepareStatement(sql.trimIndent()).use { preparedStatement ->
+    preparedStatement.queryTimeout = 60
+
     val resultName: String = when (jobResult) {
       is JobResult.Cancelled -> "cancelled"
       is JobResult.Failed -> "failed"
@@ -264,6 +270,8 @@ private suspend fun createJobResultTable(
   log: Log = NamedLog("PgJobResultsRepo.createJobResultTable"),
 ) =
   con.createStatement().use { statement ->
+    statement.queryTimeout = 60
+
     // language=PostgreSQL
     val createTableSQL = """
       |CREATE TABLE IF NOT EXISTS $schema.job_result (
@@ -307,6 +315,8 @@ private suspend fun createJobResultSnapshotTable(
   log: Log = NamedLog("PgJobResultsRepo.createJobResultSnapshotTable"),
 ) =
   con.createStatement().use { statement ->
+    statement.queryTimeout = 60
+
     // language=PostgreSQL
     val sql = """
       |CREATE TABLE IF NOT EXISTS $schema.job_result_snapshot (
@@ -345,6 +355,8 @@ private suspend fun deleteResultsOnJobResultTableBefore(
   log.debug(sql)
 
   con.prepareStatement(sql).use { preparedStatement ->
+    preparedStatement.queryTimeout = 60
+
     preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
 
     preparedStatement.executeUpdate()
@@ -363,6 +375,7 @@ private suspend fun deleteResultsOnJobResultSnapshotTableBefore(
   log.debug(sql)
 
   con.prepareStatement(sql).use { preparedStatement ->
+    preparedStatement.queryTimeout = 60
     preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
 
     preparedStatement.executeUpdate()
