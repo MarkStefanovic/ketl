@@ -1,3 +1,5 @@
+@file:Suppress("SqlResolve")
+
 package ketl.adapter.sqlite
 
 import ketl.domain.DbJobResultsRepo
@@ -41,7 +43,6 @@ data class SQLiteJobResultsRepo(
   override suspend fun getLatestResults(): Set<JobResult> {
     // language=SQLite
     val sql = """
-      |-- noinspection SqlResolve @ table/"ketl_job_result_snapshot"
       |SELECT
       |  jr.job_name
       |, jr.start_time
@@ -111,7 +112,6 @@ private suspend fun addResultToJobResultTable(
 ) {
   // language=SQLite
   val sql = """
-    |-- noinspection SqlResolve @ table/"ketl_job_result"
     |INSERT INTO ketl_job_result (
     |  job_name
     |, start_time
@@ -288,7 +288,6 @@ private suspend fun createJobResultTable(
 
     // language=SQLite
     val startTimeIndexSQL = """
-      |-- noinspection SqlResolve @ table/"ketl_job_result"
       |CREATE INDEX IF NOT EXISTS ix_job_result_job_name_start_time 
       |  ON ketl_job_result (job_name, start_time)
     """.trimMargin()
@@ -338,7 +337,6 @@ private suspend fun deleteResultsOnJobResultTableBefore(
 ) {
   // language=SQLite
   val sql = """
-    |-- noinspection SqlResolve @ table/"ketl_job_result"
     |DELETE FROM ketl_job_result
     |WHERE start_time < ?
   """.trimMargin()
@@ -361,7 +359,6 @@ private suspend fun deleteResultsOnJobResultSnapshotTableBefore(
 ) {
   // language=SQLite
   val sql = """
-    |-- noinspection SqlResolve @ table/"ketl_job_result_snapshot"
     |DELETE FROM ketl_job_result_snapshot 
     |WHERE start_time < ?
   """.trimMargin()

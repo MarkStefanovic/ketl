@@ -1,3 +1,5 @@
+@file:Suppress("SqlResolve")
+
 package ketl.adapter.pg
 
 import ketl.domain.DbLogRepo
@@ -30,7 +32,6 @@ class PgLogRepo(
 
       // language=PostgreSQL
       val createTsIndexSQL = """
-        |-- noinspection SqlResolve @ table/"log"
         |CREATE INDEX IF NOT EXISTS ix_log_ts 
         |  ON $schema.log (ts)
       """.trimMargin()
@@ -39,7 +40,6 @@ class PgLogRepo(
 
       // language=PostgreSQL
       val createLogNameIndexSQL = """
-        |-- noinspection SqlResolve @ table/"log"
         |CREATE INDEX IF NOT EXISTS ix_log_log_name 
         |  ON $schema.log (log_name)
       """.trimMargin()

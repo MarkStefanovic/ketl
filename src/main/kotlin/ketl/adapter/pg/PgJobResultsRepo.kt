@@ -1,3 +1,5 @@
+@file:Suppress("SqlResolve")
+
 package ketl.adapter.pg
 
 import ketl.domain.DbJobResultsRepo
@@ -42,7 +44,6 @@ data class PgJobResultsRepo(
   override suspend fun getLatestResults(): Set<JobResult> {
     // language=PostgreSQL
     val sql = """
-      |-- noinspection SqlResolve @ schema/"jr"
       |SELECT
       |  jr.job_name
       |, jr.start_time

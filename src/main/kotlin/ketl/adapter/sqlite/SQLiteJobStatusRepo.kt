@@ -1,3 +1,5 @@
+@file:Suppress("SqlResolve")
+
 package ketl.adapter.sqlite
 
 import ketl.domain.DbJobStatusRepo
@@ -25,7 +27,6 @@ class SQLiteJobStatusRepo(
   override suspend fun cancelRunningJobs() {
     //language=SQLite
     val sql = """
-      |-- noinspection SqlResolve @ table/"ketl_job_status_snapshot"
       |UPDATE ketl_job_status_snapshot
       |SET status = 'cancelled'
       |WHERE status = 'running'
@@ -45,7 +46,6 @@ class SQLiteJobStatusRepo(
   override suspend fun currentStatus(): Set<JobStatus> {
     //language=SQLite
     val sql = """
-      |-- noinspection SqlResolve @ table/"ketl_job_status_snapshot"
       |SELECT
       |  job_name
       |, status
