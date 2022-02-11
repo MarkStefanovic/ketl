@@ -3,9 +3,9 @@ package ketl.service
 import ketl.adapter.pg.PgJobStatusRepo
 import ketl.adapter.sqlite.SQLiteJobStatusRepo
 import ketl.domain.DbJobStatusRepo
-import ketl.domain.DefaultJobStatuses
 import ketl.domain.JobStatus
 import ketl.domain.JobStatuses
+import ketl.domain.Log
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import javax.sql.DataSource
@@ -19,33 +19,35 @@ import kotlin.time.toJavaDuration
 suspend fun pgJobStatusLogger(
   ds: DataSource,
   schema: String = "ketl",
-  jobStatuses: JobStatuses = DefaultJobStatuses,
+  log: Log,
+  jobStatuses: JobStatuses,
   durationToKeep: Duration = 5.days,
   runCleanupEvery: Duration = 30.minutes,
 ) = dbJobStatusLogger(
   jobStatuses = jobStatuses,
   durationToKeep = durationToKeep,
   runCleanupEvery = runCleanupEvery,
-  repo = PgJobStatusRepo(schema = schema, ds = ds)
+  repo = PgJobStatusRepo(schema = schema, ds = ds, log = log)
 )
 
 @ExperimentalTime
 suspend fun sqliteJobStatusLogger(
   ds: DataSource,
-  jobStatuses: JobStatuses = DefaultJobStatuses,
+  jobStatuses: JobStatuses,
+  log: Log,
   durationToKeep: Duration = 5.days,
   runCleanupEvery: Duration = 30.minutes,
 ) = dbJobStatusLogger(
   jobStatuses = jobStatuses,
   durationToKeep = durationToKeep,
   runCleanupEvery = runCleanupEvery,
-  repo = SQLiteJobStatusRepo(ds = ds)
+  repo = SQLiteJobStatusRepo(ds = ds, log = log)
 )
 
 @ExperimentalTime
 private suspend fun dbJobStatusLogger(
   repo: DbJobStatusRepo,
-  jobStatuses: JobStatuses = DefaultJobStatuses,
+  jobStatuses: JobStatuses,
   durationToKeep: Duration = 5.days,
   runCleanupEvery: Duration = 30.minutes,
 ) {

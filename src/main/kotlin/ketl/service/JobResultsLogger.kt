@@ -1,13 +1,11 @@
 package ketl.service
 
-import ketl.domain.DefaultJobResults
 import ketl.domain.JobResults
 import ketl.domain.Log
-import ketl.domain.NamedLog
 
 suspend fun jobResultsLogger(
-  jobResults: JobResults = DefaultJobResults,
-  log: Log = NamedLog("jobResultsLogger"),
+  jobResults: JobResults,
+  log: Log,
 ) {
   jobResults.stream.collect { jobResult ->
     log.info("Job result received: $jobResult")

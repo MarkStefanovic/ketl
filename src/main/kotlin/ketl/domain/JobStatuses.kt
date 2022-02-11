@@ -24,7 +24,7 @@ interface JobStatuses {
   suspend fun add(jobStatus: JobStatus)
 }
 
-object DefaultJobStatusState : JobStatusState {
+class DefaultJobStatusState : JobStatusState {
   private val dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
 
   private val statuses = mutableMapOf<String, JobStatus>()
@@ -42,7 +42,7 @@ object DefaultJobStatusState : JobStatusState {
   }
 }
 
-object DefaultJobStatuses : JobStatuses {
+class DefaultJobStatuses : JobStatuses {
   private val _stream = MutableSharedFlow<JobStatus>(
     extraBufferCapacity = 100,
     onBufferOverflow = BufferOverflow.DROP_OLDEST,
@@ -55,5 +55,5 @@ object DefaultJobStatuses : JobStatuses {
     state.add(jobStatus)
   }
 
-  override val state: JobStatusState = DefaultJobStatusState
+  override val state: JobStatusState = DefaultJobStatusState()
 }

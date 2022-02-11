@@ -6,6 +6,7 @@ import ketl.domain.DbLogRepo
 import ketl.domain.LogLevel
 import ketl.domain.LogMessage
 import ketl.domain.LogMessages
+import ketl.domain.NamedLog
 import ketl.domain.gte
 import kotlinx.coroutines.flow.SharedFlow
 import java.time.LocalDateTime
@@ -21,37 +22,37 @@ import kotlin.time.toJavaDuration
 suspend fun pgLogger(
   ds: DataSource,
   schema: String = "ketl",
-  logMessages: SharedFlow<LogMessage> = LogMessages.stream,
+  logMessages: LogMessages,
   minLogLevel: LogLevel = LogLevel.Info,
   durationToKeep: Duration = 5.days,
   runCleanupEvery: Duration = 30.minutes,
 ) = dbLogger(
-  logMessages = logMessages,
+  logMessages = logMessages.stream,
   minLogLevel = minLogLevel,
   durationToKeep = durationToKeep,
   runCleanupEvery = runCleanupEvery,
-  repo = PgLogRepo(ds = ds, schema = schema),
+  repo = PgLogRepo(ds = ds, schema = schema, log = NamedLog(name = "pgLogger", stream = logMessages)),
 )
 
 @ExperimentalTime
 suspend fun sqliteLogger(
   ds: DataSource,
-  logMessages: SharedFlow<LogMessage> = LogMessages.stream,
+  logMessages: LogMessages,
   minLogLevel: LogLevel = LogLevel.Info,
   durationToKeep: Duration = 5.days,
   runCleanupEvery: Duration = 30.minutes,
 ) = dbLogger(
-  logMessages = logMessages,
+  logMessages = logMessages.stream,
   minLogLevel = minLogLevel,
   durationToKeep = durationToKeep,
   runCleanupEvery = runCleanupEvery,
-  repo = SQLiteLogRepo(ds = ds),
+  repo = SQLiteLogRepo(ds = ds, log = NamedLog(name = "sqliteLogger", stream = logMessages)),
 )
 
 @ExperimentalTime
 private suspend fun dbLogger(
   repo: DbLogRepo,
-  logMessages: SharedFlow<LogMessage> = LogMessages.stream,
+  logMessages: SharedFlow<LogMessage>,
   minLogLevel: LogLevel = LogLevel.Info,
   durationToKeep: Duration = 5.days,
   runCleanupEvery: Duration = 30.minutes,

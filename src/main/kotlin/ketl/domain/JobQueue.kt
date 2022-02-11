@@ -20,7 +20,7 @@ interface JobQueue {
 }
 
 @ExperimentalTime
-object DefaultJobQueue : JobQueue {
+class DefaultJobQueue : JobQueue {
   private val _stream = MutableStateFlow<List<KETLJob>>(emptyList())
   override val stream = _stream.asStateFlow()
 

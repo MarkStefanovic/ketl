@@ -3,7 +3,6 @@ package ketl.adapter.pg
 import ketl.domain.DbLogRepo
 import ketl.domain.Log
 import ketl.domain.LogMessage
-import ketl.domain.NamedLog
 import java.sql.Timestamp
 import java.time.LocalDateTime
 import javax.sql.DataSource
@@ -11,7 +10,7 @@ import javax.sql.DataSource
 class PgLogRepo(
   private val ds: DataSource,
   private val schema: String,
-  private val log: Log = NamedLog("PgLogRepo"),
+  private val log: Log,
 ) : DbLogRepo {
 
   override suspend fun createTable() {

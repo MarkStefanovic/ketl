@@ -1,10 +1,8 @@
 package ketl.service
 
-import ketl.domain.DefaultJobStatuses
 import ketl.domain.JobStatus
 import ketl.domain.JobStatuses
 import ketl.domain.Log
-import ketl.domain.NamedLog
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.withContext
@@ -15,8 +13,8 @@ import kotlin.time.ExperimentalTime
 @ExperimentalTime
 @DelicateCoroutinesApi
 suspend fun jobStatusLogger(
-  jobStatuses: JobStatuses = DefaultJobStatuses,
-  log: Log = NamedLog("jobStatusLogger"),
+  jobStatuses: JobStatuses,
+  log: Log,
 ) {
   val dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
 

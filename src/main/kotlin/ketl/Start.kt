@@ -11,12 +11,14 @@ import ketl.domain.JobService
 import ketl.domain.JobStatuses
 import ketl.domain.KETLErrror
 import ketl.domain.Log
-import ketl.domain.LogMessage
+import ketl.domain.LogLevel
 import ketl.domain.LogMessages
 import ketl.domain.NamedLog
 import ketl.domain.jobRunner
 import ketl.domain.jobScheduler
+import ketl.service.consoleLogger
 import ketl.service.jobStatusCleaner
+import ketl.service.jobStatusLogger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -25,7 +27,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -41,11 +42,11 @@ import kotlin.time.ExperimentalTime
 @ExperimentalTime
 suspend fun run(
   jobService: JobService,
-  logMessages: SharedFlow<LogMessage> = LogMessages.stream,
-  log: Log = NamedLog(name = "ketl", stream = logMessages),
-  jobQueue: JobQueue = DefaultJobQueue,
-  jobStatuses: JobStatuses = DefaultJobStatuses,
-  jobResults: JobResults = DefaultJobResults,
+  logMessages: LogMessages,
+  log: Log,
+  jobQueue: JobQueue,
+  jobStatuses: JobStatuses,
+  jobResults: JobResults,
   maxSimultaneousJobs: Int = 10,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
   timeBetweenScans: Duration = 10.seconds,
@@ -55,6 +56,7 @@ suspend fun run(
 
     launch(dispatcher) {
       jobScheduler(
+        log = NamedLog(name = "jobScheduler", stream = logMessages),
         jobService = jobService,
         queue = jobQueue,
         results = jobResults,
@@ -65,6 +67,7 @@ suspend fun run(
 
     launch(dispatcher) {
       jobStatusCleaner(
+        log = NamedLog(name = "jobStatusCleaner", stream = logMessages),
         jobService = jobService,
         jobStatuses = jobStatuses,
         timeBetweenScans = timeBetweenScans,
@@ -89,7 +92,7 @@ suspend fun run(
 }
 
 suspend fun startHeartbeat(
-  log: Log = NamedLog("heartbeat"),
+  log: Log,
   jobResults: JobResults,
   maxTimeToWait: Duration,
   timeBetweenChecks: Duration,
@@ -119,36 +122,49 @@ suspend fun startHeartbeat(
 @ExperimentalTime
 fun start(
   jobService: JobService,
-  logMessages: SharedFlow<LogMessage> = LogMessages.stream,
-  log: Log = NamedLog(name = "ketl", stream = logMessages),
-  jobQueue: JobQueue = DefaultJobQueue,
-  jobStatuses: JobStatuses = DefaultJobStatuses,
-  jobResults: JobResults = DefaultJobResults,
   maxSimultaneousJobs: Int = 10,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
   timeBetweenScans: Duration = 10.seconds,
   restartOnFailure: Boolean = true,
   timeBetweenRestarts: Duration = 10.minutes,
+  logJobMessagesToConsole: Boolean = false,
+  logJobStatusChanges: Boolean = false,
 ) = runBlocking {
   while (true) {
-    try {
-      val job = launch(dispatcher) {
-        run(
-          jobService = jobService,
-          logMessages = logMessages,
-          log = log,
-          jobQueue = jobQueue,
-          jobStatuses = jobStatuses,
-          jobResults = jobResults,
-          maxSimultaneousJobs = maxSimultaneousJobs,
-          dispatcher = dispatcher,
-          timeBetweenScans = timeBetweenScans,
-        )
+    val logMessages = LogMessages()
+    val jobStatuses = DefaultJobStatuses()
+
+    if (logJobStatusChanges) {
+      launch {
+        jobStatusLogger(jobStatuses = jobStatuses, log = NamedLog(name = "jobStatusLogger", stream = logMessages))
       }
+    }
+
+    if (logJobMessagesToConsole) {
+      launch {
+        consoleLogger(minLogLevel = LogLevel.Debug, logMessages = logMessages.stream)
+      }
+    }
+
+    val log = NamedLog(name = "ketl", stream = logMessages)
+    val jobResults = DefaultJobResults()
+
+    try {
+      val job = run(
+        jobService = jobService,
+        logMessages = logMessages,
+        log = log,
+        jobQueue = DefaultJobQueue(),
+        jobStatuses = jobStatuses,
+        jobResults = jobResults,
+        maxSimultaneousJobs = maxSimultaneousJobs,
+        dispatcher = dispatcher,
+        timeBetweenScans = timeBetweenScans,
+      )
 
       job.invokeOnCompletion {
         try {
-          dispatcher.cancelChildren(it as? CancellationException)
+          job.cancelChildren(it as? CancellationException)
           launch(dispatcher) {
             log.info(message = "Children cancelled.")
           }
@@ -161,6 +177,7 @@ fun start(
       }
 
       startHeartbeat(
+        log = NamedLog(name = "heartbeat", stream = logMessages),
         jobResults = jobResults,
         maxTimeToWait = 15.minutes,
         timeBetweenChecks = 5.minutes,

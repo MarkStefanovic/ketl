@@ -5,14 +5,13 @@ package ketl.adapter.sqlite
 import ketl.domain.DbLogRepo
 import ketl.domain.Log
 import ketl.domain.LogMessage
-import ketl.domain.NamedLog
 import java.sql.Timestamp
 import java.time.LocalDateTime
 import javax.sql.DataSource
 
 class SQLiteLogRepo(
   private val ds: DataSource,
-  private val log: Log = NamedLog("SQLiteLogRepo"),
+  private val log: Log,
 ) : DbLogRepo {
 
   override suspend fun createTable() {

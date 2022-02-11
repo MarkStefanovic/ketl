@@ -4,7 +4,6 @@ import ketl.domain.DbJobResultsRepo
 import ketl.domain.JobResult
 import ketl.domain.KETLErrror
 import ketl.domain.Log
-import ketl.domain.NamedLog
 import java.sql.Connection
 import java.sql.Timestamp
 import java.sql.Types
@@ -13,29 +12,29 @@ import javax.sql.DataSource
 
 data class SQLiteJobResultsRepo(
   private val ds: DataSource,
-  private val log: Log = NamedLog("SQLiteJobResultsRepo"),
+  private val log: Log,
 ) : DbJobResultsRepo {
   override suspend fun createTables() {
     ds.connection.use { con ->
-      createJobResultSnapshotTable(con = con)
+      createJobResultSnapshotTable(con = con, log = log)
 
-      createJobResultTable(con = con)
+      createJobResultTable(con = con, log = log)
     }
   }
 
   override suspend fun add(jobResult: JobResult) {
     ds.connection.use { con ->
-      addResultToJobResultSnapshotTable(con = con, jobResult = jobResult)
+      addResultToJobResultSnapshotTable(con = con, jobResult = jobResult, log = log)
 
-      addResultToJobResultTable(con = con, jobResult = jobResult)
+      addResultToJobResultTable(con = con, jobResult = jobResult, log = log)
     }
   }
 
   override suspend fun deleteBefore(ts: LocalDateTime) {
     ds.connection.use { con ->
-      deleteResultsOnJobResultSnapshotTableBefore(con = con, ts = ts)
+      deleteResultsOnJobResultSnapshotTableBefore(con = con, ts = ts, log = log)
 
-      deleteResultsOnJobResultTableBefore(con = con, ts = ts)
+      deleteResultsOnJobResultTableBefore(con = con, ts = ts, log = log)
     }
   }
 
@@ -108,7 +107,7 @@ data class SQLiteJobResultsRepo(
 private suspend fun addResultToJobResultTable(
   con: Connection,
   jobResult: JobResult,
-  log: Log = NamedLog("SQLiteJobResultsRepo.addResultToJobResultTable"),
+  log: Log,
 ) {
   // language=SQLite
   val sql = """
@@ -177,7 +176,7 @@ private suspend fun addResultToJobResultTable(
 private suspend fun addResultToJobResultSnapshotTable(
   con: Connection,
   jobResult: JobResult,
-  log: Log = NamedLog("SQLiteJobResultsRepo.addResultToJobResultSnapshotTable"),
+  log: Log,
 ) {
   // language=SQLite
   val sql = """
@@ -257,7 +256,7 @@ private suspend fun addResultToJobResultSnapshotTable(
 
 private suspend fun createJobResultTable(
   con: Connection,
-  log: Log = NamedLog("SQLiteJobResultsRepo.createJobResultTable"),
+  log: Log,
 ) =
   con.createStatement().use { statement ->
     statement.queryTimeout = 60
@@ -301,7 +300,7 @@ private suspend fun createJobResultTable(
 
 private suspend fun createJobResultSnapshotTable(
   con: Connection,
-  log: Log = NamedLog("SQLiteJobResultsRepo.createJobResultSnapshotTable"),
+  log: Log,
 ) =
   con.createStatement().use { statement ->
     statement.queryTimeout = 60
@@ -335,7 +334,7 @@ private suspend fun createJobResultSnapshotTable(
 private suspend fun deleteResultsOnJobResultTableBefore(
   con: Connection,
   ts: LocalDateTime,
-  log: Log = NamedLog("SQLiteJobResultsRepo.deleteResultsOnJobResultTableBefore"),
+  log: Log,
 ) {
   // language=SQLite
   val sql = """
@@ -358,7 +357,7 @@ private suspend fun deleteResultsOnJobResultTableBefore(
 private suspend fun deleteResultsOnJobResultSnapshotTableBefore(
   con: Connection,
   ts: LocalDateTime,
-  log: Log = NamedLog("SQLiteJobResultsRepo.deleteResultsOnJobResultSnapshotTableBefore"),
+  log: Log,
 ) {
   // language=SQLite
   val sql = """

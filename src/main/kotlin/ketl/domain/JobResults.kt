@@ -18,7 +18,7 @@ interface JobResults {
   suspend fun add(result: JobResult)
 }
 
-object DefaultJobResults : JobResults {
+class DefaultJobResults : JobResults {
   private val _stream = MutableSharedFlow<JobResult>(
     extraBufferCapacity = 100,
     onBufferOverflow = BufferOverflow.DROP_OLDEST,

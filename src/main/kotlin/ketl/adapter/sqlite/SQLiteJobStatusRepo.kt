@@ -3,7 +3,7 @@ package ketl.adapter.sqlite
 import ketl.domain.DbJobStatusRepo
 import ketl.domain.JobStatus
 import ketl.domain.KETLErrror
-import ketl.domain.NamedLog
+import ketl.domain.Log
 import java.sql.Connection
 import java.sql.ResultSet
 import java.sql.Timestamp
@@ -13,7 +13,7 @@ import javax.sql.DataSource
 
 class SQLiteJobStatusRepo(
   private val ds: DataSource,
-  private val log: NamedLog = NamedLog("SQLiteJobStatusRepo"),
+  private val log: Log,
 ) : DbJobStatusRepo {
   override suspend fun add(jobStatus: JobStatus) {
     ds.connection.use { connection ->
@@ -148,7 +148,7 @@ class SQLiteJobStatusRepo(
 private suspend fun addToHistoricalTable(
   con: Connection,
   jobStatus: JobStatus,
-  log: NamedLog,
+  log: Log,
 ) {
   //language=SQLite
   val sql = """
@@ -194,7 +194,7 @@ private suspend fun addToHistoricalTable(
 private suspend fun addToSnapshotTable(
   con: Connection,
   jobStatus: JobStatus,
-  log: NamedLog,
+  log: Log,
 ) {
   //language=SQLite
   val sql = """
@@ -238,7 +238,7 @@ private suspend fun addToSnapshotTable(
 }
 
 private suspend fun deleteBeforeTsOnHistoricalTable(
-  log: NamedLog,
+  log: Log,
   con: Connection,
   ts: LocalDateTime,
 ) {
@@ -261,7 +261,7 @@ private suspend fun deleteBeforeTsOnHistoricalTable(
 }
 
 private suspend fun deleteBeforeTsOnSnapshotTable(
-  log: NamedLog,
+  log: Log,
   con: Connection,
   ts: LocalDateTime,
 ) {

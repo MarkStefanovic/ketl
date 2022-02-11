@@ -3,7 +3,7 @@ package ketl.adapter.pg
 import ketl.domain.DbJobStatusRepo
 import ketl.domain.JobStatus
 import ketl.domain.KETLErrror
-import ketl.domain.NamedLog
+import ketl.domain.Log
 import java.sql.Connection
 import java.sql.ResultSet
 import java.sql.Timestamp
@@ -14,7 +14,7 @@ import javax.sql.DataSource
 class PgJobStatusRepo(
   val schema: String,
   private val ds: DataSource,
-  private val log: NamedLog = NamedLog("PgJobStatusRepo"),
+  private val log: Log,
 ) : DbJobStatusRepo {
   override suspend fun add(jobStatus: JobStatus) {
     ds.connection.use { connection ->
@@ -143,7 +143,7 @@ private suspend fun addToHistoricalTable(
   con: Connection,
   schema: String,
   jobStatus: JobStatus,
-  log: NamedLog,
+  log: Log,
 ) {
   //language=PostgreSQL
   val sql = """
@@ -189,7 +189,7 @@ private suspend fun addToSnapshotTable(
   con: Connection,
   schema: String,
   jobStatus: JobStatus,
-  log: NamedLog,
+  log: Log,
 ) {
   //language=PostgreSQL
   val sql = """
@@ -250,7 +250,7 @@ private suspend fun addToSnapshotTable(
 }
 
 private suspend fun deleteBeforeTsOnHistoricalTable(
-  log: NamedLog,
+  log: Log,
   con: Connection,
   schema: String,
   ts: LocalDateTime,
@@ -273,7 +273,7 @@ private suspend fun deleteBeforeTsOnHistoricalTable(
 }
 
 private suspend fun deleteBeforeTsOnSnapshotTable(
-  log: NamedLog,
+  log: Log,
   con: Connection,
   schema: String,
   ts: LocalDateTime,

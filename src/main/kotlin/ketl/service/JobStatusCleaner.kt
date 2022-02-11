@@ -4,7 +4,6 @@ import ketl.domain.JobService
 import ketl.domain.JobStatus
 import ketl.domain.JobStatuses
 import ketl.domain.Log
-import ketl.domain.NamedLog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.time.LocalDateTime
@@ -18,7 +17,7 @@ suspend fun jobStatusCleaner(
   jobService: JobService,
   jobStatuses: JobStatuses,
   timeBetweenScans: Duration,
-  log: Log = NamedLog("jobStatusCleaner"),
+  log: Log,
 ) {
   while (coroutineContext.isActive) {
     jobStatuses.state.runningJobs().forEach { jobName ->

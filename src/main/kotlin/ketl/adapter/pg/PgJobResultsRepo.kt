@@ -4,7 +4,6 @@ import ketl.domain.DbJobResultsRepo
 import ketl.domain.JobResult
 import ketl.domain.KETLErrror
 import ketl.domain.Log
-import ketl.domain.NamedLog
 import java.sql.Connection
 import java.sql.Timestamp
 import java.sql.Types
@@ -14,29 +13,29 @@ import javax.sql.DataSource
 data class PgJobResultsRepo(
   val schema: String,
   private val ds: DataSource,
-  private val log: Log = NamedLog("PgJobResultsRepo"),
+  private val log: Log,
 ) : DbJobResultsRepo {
   override suspend fun createTables() {
     ds.connection.use { con ->
-      createJobResultSnapshotTable(con = con, schema = schema)
+      createJobResultSnapshotTable(con = con, schema = schema, log = log)
 
-      createJobResultTable(con = con, schema = schema)
+      createJobResultTable(con = con, schema = schema, log = log)
     }
   }
 
   override suspend fun add(jobResult: JobResult) {
     ds.connection.use { con ->
-      addResultToJobResultSnapshotTable(con = con, schema = schema, jobResult = jobResult)
+      addResultToJobResultSnapshotTable(con = con, schema = schema, jobResult = jobResult, log = log)
 
-      addResultToJobResultTable(con = con, schema = schema, jobResult = jobResult)
+      addResultToJobResultTable(con = con, schema = schema, jobResult = jobResult, log = log)
     }
   }
 
   override suspend fun deleteBefore(ts: LocalDateTime) {
     ds.connection.use { con ->
-      deleteResultsOnJobResultSnapshotTableBefore(con = con, schema = schema, ts = ts)
+      deleteResultsOnJobResultSnapshotTableBefore(con = con, schema = schema, ts = ts, log = log)
 
-      deleteResultsOnJobResultTableBefore(con = con, schema = schema, ts = ts)
+      deleteResultsOnJobResultTableBefore(con = con, schema = schema, ts = ts, log = log)
     }
   }
 
@@ -110,7 +109,7 @@ private suspend fun addResultToJobResultTable(
   con: Connection,
   schema: String,
   jobResult: JobResult,
-  log: Log = NamedLog("PgJobResultsRepo.addResultToJobResultTable"),
+  log: Log,
 ) {
   // language=PostgreSQL
   val sql = """
@@ -178,7 +177,7 @@ private suspend fun addResultToJobResultSnapshotTable(
   con: Connection,
   schema: String,
   jobResult: JobResult,
-  log: Log = NamedLog("PgJobResultsRepo.addResultToJobResultSnapshotTable"),
+  log: Log,
 ) {
   // language=PostgreSQL
   val sql = """
@@ -267,7 +266,7 @@ private suspend fun addResultToJobResultSnapshotTable(
 private suspend fun createJobResultTable(
   con: Connection,
   schema: String,
-  log: Log = NamedLog("PgJobResultsRepo.createJobResultTable"),
+  log: Log,
 ) =
   con.createStatement().use { statement ->
     statement.queryTimeout = 60
@@ -312,7 +311,7 @@ private suspend fun createJobResultTable(
 private suspend fun createJobResultSnapshotTable(
   con: Connection,
   schema: String,
-  log: Log = NamedLog("PgJobResultsRepo.createJobResultSnapshotTable"),
+  log: Log,
 ) =
   con.createStatement().use { statement ->
     statement.queryTimeout = 60
@@ -347,7 +346,7 @@ private suspend fun deleteResultsOnJobResultTableBefore(
   con: Connection,
   schema: String,
   ts: LocalDateTime,
-  log: Log = NamedLog("PgJobResultsRepo.deleteResultsOnJobResultTableBefore"),
+  log: Log,
 ) {
   // language=PostgreSQL
   val sql = "DELETE FROM $schema.job_result WHERE start_time < ?"
@@ -367,7 +366,7 @@ private suspend fun deleteResultsOnJobResultSnapshotTableBefore(
   con: Connection,
   schema: String,
   ts: LocalDateTime,
-  log: Log = NamedLog("PgJobResultsRepo.deleteResultsOnJobResultSnapshotTableBefore"),
+  log: Log,
 ) {
   // language=PostgreSQL
   val sql = "DELETE FROM $schema.job_result_snapshot WHERE start_time < ?"

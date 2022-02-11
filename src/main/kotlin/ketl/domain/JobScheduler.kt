@@ -16,7 +16,7 @@ suspend fun jobScheduler(
   results: JobResults,
   statuses: JobStatuses,
   timeBetweenScans: Duration,
-  log: NamedLog = NamedLog("jobScheduler"),
+  log: Log,
 ) {
   while (coroutineContext.isActive) {
     val activeJobs = jobService.getActiveJobs()
