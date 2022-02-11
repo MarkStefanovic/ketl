@@ -174,6 +174,7 @@ fun start(
           launch(dispatcher) {
             log.info(message = "Children cancelled.")
           }
+          throw it ?: Exception("An unexpected error occurred.")
         } catch (e: Throwable) {
           launch(dispatcher) {
             log.info("An exception occurred while closing child coroutines: ${e.stackTraceToString()}")
