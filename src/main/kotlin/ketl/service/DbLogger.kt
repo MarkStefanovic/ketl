@@ -31,7 +31,11 @@ suspend fun pgLogger(
   minLogLevel = minLogLevel,
   durationToKeep = durationToKeep,
   runCleanupEvery = runCleanupEvery,
-  repo = PgLogRepo(ds = ds, schema = schema, log = NamedLog(name = "pgLogger", stream = logMessages)),
+  repo = PgLogRepo(
+    ds = ds,
+    schema = schema,
+    log = NamedLog(name = "pgLogger", logMessages = logMessages),
+  ),
 )
 
 @ExperimentalTime
@@ -46,7 +50,10 @@ suspend fun sqliteLogger(
   minLogLevel = minLogLevel,
   durationToKeep = durationToKeep,
   runCleanupEvery = runCleanupEvery,
-  repo = SQLiteLogRepo(ds = ds, log = NamedLog(name = "sqliteLogger", stream = logMessages)),
+  repo = SQLiteLogRepo(
+    ds = ds,
+    log = NamedLog(name = "sqliteLogger", logMessages = logMessages),
+  ),
 )
 
 @ExperimentalTime

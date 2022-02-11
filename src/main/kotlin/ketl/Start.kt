@@ -56,7 +56,7 @@ suspend fun run(
 
     launch(dispatcher) {
       jobScheduler(
-        log = NamedLog(name = "jobScheduler", stream = logMessages),
+        log = NamedLog(name = "jobScheduler", logMessages = logMessages),
         jobService = jobService,
         queue = jobQueue,
         results = jobResults,
@@ -67,7 +67,7 @@ suspend fun run(
 
     launch(dispatcher) {
       jobStatusCleaner(
-        log = NamedLog(name = "jobStatusCleaner", stream = logMessages),
+        log = NamedLog(name = "jobStatusCleaner", logMessages = logMessages),
         jobService = jobService,
         jobStatuses = jobStatuses,
         timeBetweenScans = timeBetweenScans,
@@ -136,17 +136,23 @@ fun start(
 
     if (logJobStatusChanges) {
       launch {
-        jobStatusLogger(jobStatuses = jobStatuses, log = NamedLog(name = "jobStatusLogger", stream = logMessages))
+        jobStatusLogger(
+          jobStatuses = jobStatuses,
+          log = NamedLog(name = "jobStatusLogger", logMessages = logMessages),
+        )
       }
     }
 
     if (logJobMessagesToConsole) {
       launch {
-        consoleLogger(minLogLevel = LogLevel.Debug, logMessages = logMessages.stream)
+        consoleLogger(
+          minLogLevel = LogLevel.Debug,
+          logMessages = logMessages.stream,
+        )
       }
     }
 
-    val log = NamedLog(name = "ketl", stream = logMessages)
+    val log = NamedLog(name = "ketl", logMessages = logMessages)
     val jobResults = DefaultJobResults()
 
     try {
@@ -177,7 +183,7 @@ fun start(
       }
 
       startHeartbeat(
-        log = NamedLog(name = "heartbeat", stream = logMessages),
+        log = NamedLog(name = "heartbeat", logMessages = logMessages),
         jobResults = jobResults,
         maxTimeToWait = 15.minutes,
         timeBetweenChecks = 5.minutes,

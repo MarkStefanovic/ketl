@@ -31,7 +31,7 @@ interface Log {
 
 data class NamedLog(
   val name: String,
-  private val stream: LogMessages,
+  private val logMessages: LogMessages,
 ) : Log {
 
   override suspend fun debug(message: String) {
@@ -51,5 +51,5 @@ data class NamedLog(
   }
 
   private suspend fun add(logMessage: LogMessage) =
-    stream.emit(logMessage)
+    logMessages.emit(logMessage)
 }
