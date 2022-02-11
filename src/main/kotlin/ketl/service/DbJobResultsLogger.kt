@@ -4,6 +4,7 @@ import ketl.adapter.pg.PgJobResultsRepo
 import ketl.adapter.sqlite.SQLiteJobResultsRepo
 import ketl.domain.DbDialect
 import ketl.domain.JobResults
+import ketl.domain.LogLevel
 import ketl.domain.LogMessages
 import ketl.domain.NamedLog
 import java.time.LocalDateTime
@@ -21,6 +22,7 @@ suspend fun dbJobResultsLogger(
   ds: DataSource,
   schema: String? = "ketl",
   logMessages: LogMessages,
+  minLogLevel: LogLevel,
   jobResults: JobResults,
   durationToKeep: Duration = 5.days,
   runCleanupEvery: Duration = 30.minutes,
@@ -29,11 +31,19 @@ suspend fun dbJobResultsLogger(
     DbDialect.PostgreSQL -> PgJobResultsRepo(
       schema = schema ?: "public",
       ds = ds,
-      log = NamedLog(name = "pgJobResultsRepo", logMessages = logMessages),
+      log = NamedLog(
+        name = "pgJobResultsRepo",
+        logMessages = logMessages,
+        minLogLevel = minLogLevel,
+      ),
     )
     DbDialect.SQLite -> SQLiteJobResultsRepo(
       ds = ds,
-      log = NamedLog(name = "sqliteJobResultsRepo", logMessages = logMessages),
+      log = NamedLog(
+        name = "sqliteJobResultsRepo",
+        logMessages = logMessages,
+        minLogLevel = minLogLevel,
+      ),
     )
   }
 

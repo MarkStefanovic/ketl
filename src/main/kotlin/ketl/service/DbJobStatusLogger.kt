@@ -5,6 +5,7 @@ import ketl.adapter.sqlite.SQLiteJobStatusRepo
 import ketl.domain.DbDialect
 import ketl.domain.JobStatus
 import ketl.domain.JobStatuses
+import ketl.domain.LogLevel
 import ketl.domain.LogMessages
 import ketl.domain.NamedLog
 import java.time.LocalDateTime
@@ -23,6 +24,7 @@ suspend fun dbJobStatusLogger(
   schema: String? = "ketl",
   jobStatuses: JobStatuses,
   logMessages: LogMessages,
+  minLogLevel: LogLevel,
   durationToKeep: Duration = 5.days,
   runCleanupEvery: Duration = 30.minutes,
 ) {
@@ -30,11 +32,19 @@ suspend fun dbJobStatusLogger(
     DbDialect.PostgreSQL -> PgJobStatusRepo(
       schema = schema ?: "public",
       ds = ds,
-      log = NamedLog(name = "pgJobStatusRepo", logMessages = logMessages)
+      log = NamedLog(
+        name = "pgJobStatusRepo",
+        logMessages = logMessages,
+        minLogLevel = minLogLevel,
+      )
     )
     DbDialect.SQLite -> SQLiteJobStatusRepo(
       ds = ds,
-      log = NamedLog(name = "sqliteJobStatusRepo", logMessages = logMessages)
+      log = NamedLog(
+        name = "sqliteJobStatusRepo",
+        logMessages = logMessages,
+        minLogLevel = minLogLevel,
+      )
     )
   }
 

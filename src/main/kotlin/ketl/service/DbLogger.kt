@@ -33,11 +33,19 @@ suspend fun dbLogger(
     DbDialect.PostgreSQL -> PgLogRepo(
       ds = ds,
       schema = schema ?: "public",
-      log = NamedLog(name = "pgLogger", logMessages = logMessages),
+      log = NamedLog(
+        name = "pgLogger",
+        logMessages = logMessages,
+        minLogLevel = minLogLevel,
+      ),
     )
     DbDialect.SQLite -> SQLiteLogRepo(
       ds = ds,
-      log = NamedLog(name = "sqliteLogger", logMessages = logMessages),
+      log = NamedLog(
+        name = "sqliteLogger",
+        logMessages = logMessages,
+        minLogLevel = minLogLevel,
+      ),
     )
   }
 

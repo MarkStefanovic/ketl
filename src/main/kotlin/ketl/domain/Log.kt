@@ -31,6 +31,7 @@ interface Log {
 
 data class NamedLog(
   val name: String,
+  val minLogLevel: LogLevel,
   private val logMessages: LogMessages,
 ) : Log {
 
@@ -50,6 +51,9 @@ data class NamedLog(
     add(LogMessage(loggerName = name, level = LogLevel.Warning, message = message, ts = LocalDateTime.now()))
   }
 
-  private suspend fun add(logMessage: LogMessage) =
-    logMessages.emit(logMessage)
+  private suspend fun add(logMessage: LogMessage) {
+    if (logMessage.level >= minLogLevel) {
+      logMessages.emit(logMessage)
+    }
+  }
 }

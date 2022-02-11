@@ -81,6 +81,7 @@ fun start(
   timeBetweenRestarts: Duration = 10.minutes,
   logJobMessagesToConsole: Boolean = false,
   logJobStatusChanges: Boolean = false,
+  minLogLevel: LogLevel = LogLevel.Info,
 ) = runBlocking {
   if (logDs != null) {
     require(logDialect != null) {
@@ -90,7 +91,7 @@ fun start(
 
   while (true) {
     val logMessages = LogMessages()
-    val log = NamedLog(name = "ketl", logMessages = logMessages)
+    val log = NamedLog(name = "ketl", logMessages = logMessages, minLogLevel = minLogLevel)
 
     try {
       val jobStatuses = DefaultJobStatuses()
@@ -116,7 +117,7 @@ fun start(
 
       launch(job) {
         jobScheduler(
-          log = NamedLog(name = "jobScheduler", logMessages = logMessages),
+          log = NamedLog(name = "jobScheduler", logMessages = logMessages, minLogLevel = minLogLevel),
           jobService = jobService,
           queue = jobQueue,
           results = jobResults,
@@ -127,7 +128,7 @@ fun start(
 
       launch(job) {
         jobStatusCleaner(
-          log = NamedLog(name = "jobStatusCleaner", logMessages = logMessages),
+          log = NamedLog(name = "jobStatusCleaner", logMessages = logMessages, minLogLevel = minLogLevel),
           jobService = jobService,
           jobStatuses = jobStatuses,
           timeBetweenScans = timeBetweenScans,
@@ -143,12 +144,13 @@ fun start(
           dispatcher = dispatcher,
           maxSimultaneousJobs = maxSimultaneousJobs,
           timeBetweenScans = timeBetweenScans,
+          minLogLevel = minLogLevel,
         )
       }
 
       launch(job) {
         startHeartbeat(
-          log = NamedLog(name = "heartbeat", logMessages = logMessages),
+          log = NamedLog(name = "heartbeat", logMessages = logMessages, minLogLevel = minLogLevel),
           jobResults = jobResults,
           maxTimeToWait = 15.minutes,
           timeBetweenChecks = 5.minutes,
@@ -170,7 +172,7 @@ fun start(
             dbDialect = logDialect!!,
             ds = logDs,
             schema = logSchema,
-            minLogLevel = LogLevel.Info,
+            minLogLevel = minLogLevel,
             logMessages = logMessages,
           )
         }
@@ -182,6 +184,7 @@ fun start(
             schema = logSchema,
             logMessages = logMessages,
             jobResults = jobResults,
+            minLogLevel = minLogLevel,
           )
         }
       }
@@ -190,7 +193,7 @@ fun start(
         launch(job) {
           jobStatusLogger(
             jobStatuses = jobStatuses,
-            log = NamedLog(name = "jobStatusLogger", logMessages = logMessages),
+            log = NamedLog(name = "jobStatusLogger", logMessages = logMessages, minLogLevel = minLogLevel),
           )
         }
 
@@ -201,6 +204,7 @@ fun start(
             schema = logSchema,
             jobStatuses = jobStatuses,
             logMessages = logMessages,
+            minLogLevel = minLogLevel,
           )
         }
       }
