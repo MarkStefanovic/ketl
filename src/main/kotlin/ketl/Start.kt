@@ -91,7 +91,6 @@ fun start(
 
   while (true) {
     val logMessages = LogMessages()
-    val log = NamedLog(name = "ketl", logMessages = logMessages, minLogLevel = minLogLevel)
 
     try {
       val jobStatuses = DefaultJobStatuses()
@@ -101,18 +100,7 @@ fun start(
       val job = Job()
 
       job.invokeOnCompletion {
-        try {
-          job.cancelChildren(it as? CancellationException)
-          launch(dispatcher) {
-            log.info(message = "Children cancelled.")
-          }
-          throw it ?: Exception("An unexpected error occurred.")
-        } catch (e: Throwable) {
-          launch(dispatcher) {
-            log.info("An exception occurred while closing child coroutines: ${e.stackTraceToString()}")
-          }
-          throw e
-        }
+        job.cancelChildren(it as? CancellationException)
       }
 
       launch(job) {
@@ -214,7 +202,7 @@ fun start(
       e.printStackTrace()
 
       if (restartOnFailure) {
-        log.info("Restarting in $timeBetweenRestarts...")
+        println("Restarting in $timeBetweenRestarts...")
 
         delay(timeBetweenRestarts)
       } else {
