@@ -107,7 +107,11 @@ fun start(
 
       launch(job) {
         jobScheduler(
-          log = NamedLog(name = "jobScheduler", logMessages = logMessages, minLogLevel = minLogLevel),
+          log = NamedLog(
+            name = "jobScheduler",
+            logMessages = logMessages,
+            minLogLevel = minLogLevel,
+          ),
           jobService = jobService,
           queue = jobQueue,
           results = jobResults,
@@ -118,7 +122,11 @@ fun start(
 
       launch(job) {
         jobStatusCleaner(
-          log = NamedLog(name = "jobStatusCleaner", logMessages = logMessages, minLogLevel = minLogLevel),
+          log = NamedLog(
+            name = "jobStatusCleaner",
+            logMessages = logMessages,
+            minLogLevel = minLogLevel,
+          ),
           jobService = jobService,
           jobStatuses = jobStatuses,
           timeBetweenScans = timeBetweenScans,
@@ -140,7 +148,11 @@ fun start(
 
       launch(job) {
         startHeartbeat(
-          log = NamedLog(name = "heartbeat", logMessages = logMessages, minLogLevel = minLogLevel),
+          log = NamedLog(
+            name = "heartbeat",
+            logMessages = logMessages,
+            minLogLevel = minLogLevel,
+          ),
           jobResults = jobResults,
           maxTimeToWait = 15.minutes,
           timeBetweenChecks = 5.minutes,
@@ -183,19 +195,25 @@ fun start(
         launch(job) {
           jobStatusLogger(
             jobStatuses = jobStatuses,
-            log = NamedLog(name = "jobStatusLogger", logMessages = logMessages, minLogLevel = minLogLevel),
+            log = NamedLog(
+              name = "jobStatusLogger",
+              logMessages = logMessages,
+              minLogLevel = minLogLevel,
+            ),
           )
         }
 
         if (logDs != null) {
-          dbJobStatusLogger(
-            ds = logDs,
-            dbDialect = logDialect!!,
-            schema = logSchema,
-            jobStatuses = jobStatuses,
-            logMessages = logMessages,
-            minLogLevel = minLogLevel,
-          )
+          launch(job) {
+            dbJobStatusLogger(
+              ds = logDs,
+              dbDialect = logDialect!!,
+              schema = logSchema,
+              jobStatuses = jobStatuses,
+              logMessages = logMessages,
+              minLogLevel = minLogLevel,
+            )
+          }
         }
       }
 
