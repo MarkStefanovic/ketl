@@ -56,7 +56,9 @@ suspend fun startHeartbeat(
     if (latestEndTime != null) {
       val secondsSinceLastResult = latestEndTime.until(LocalDateTime.now(), ChronoUnit.SECONDS)
 
-      log.info("The latest job results were received $secondsSinceLastResult seconds ago.")
+      withTimeout(10.seconds) {
+        log.info("The latest job results were received $secondsSinceLastResult seconds ago.")
+      }
 
       if (secondsSinceLastResult > maxTimeToWait.inWholeSeconds) {
         throw KETLErrror.JobResultsStopped(secondsSinceLastResult.seconds)
