@@ -6,9 +6,7 @@ import ketl.domain.DbDialect
 import ketl.domain.DefaultJobQueue
 import ketl.domain.DefaultJobResults
 import ketl.domain.DefaultJobStatuses
-import ketl.domain.JobResults
 import ketl.domain.JobService
-import ketl.domain.Log
 import ketl.domain.LogLevel
 import ketl.domain.LogMessages
 import ketl.domain.NamedLog
@@ -18,9 +16,9 @@ import ketl.service.consoleLogger
 import ketl.service.dbJobResultsLogger
 import ketl.service.dbJobStatusLogger
 import ketl.service.dbLogger
+import ketl.service.heartbeat
 import ketl.service.jobStatusCleaner
 import ketl.service.jobStatusLogger
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -29,51 +27,14 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
-import java.time.LocalDateTime
-import java.time.temporal.ChronoUnit
+import kotlinx.coroutines.yield
 import javax.sql.DataSource
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
-
-fun CoroutineScope.heartbeat(
-  log: Log,
-  jobResults: JobResults,
-  maxTimeToWait: Duration,
-  timeBetweenChecks: Duration,
-) = launch {
-  while (isActive) {
-    val latestResults = withTimeout(10.seconds) {
-      jobResults.getLatestResults()
-    }
-
-    val latestEndTime = latestResults.maxOfOrNull { it.end }
-
-    if (latestEndTime != null) {
-      val secondsSinceLastResult = latestEndTime.until(LocalDateTime.now(), ChronoUnit.SECONDS)
-
-      withTimeout(10.seconds) {
-        log.info("The latest job results were received $secondsSinceLastResult seconds ago.")
-      }
-
-      if (secondsSinceLastResult > maxTimeToWait.inWholeSeconds) {
-        log.info("Cancelling services...")
-        cancel(
-          CancellationException(
-            "The latest job results were received $secondsSinceLastResult seconds ago.  " +
-              "Something must have gone wrong."
-          )
-        )
-      }
-    }
-    delay(timeBetweenChecks)
-  }
-}
 
 @ExperimentalCoroutinesApi
 @DelicateCoroutinesApi
@@ -89,6 +50,9 @@ fun start(
   logJobMessagesToConsole: Boolean = false,
   logJobStatusChanges: Boolean = false,
   minLogLevel: LogLevel = LogLevel.Info,
+  minTimeBetweenRestarts: Duration = 5.minutes,
+  checkForHeartbeatEvery: Duration = 5.minutes,
+  considerDeadIfNoHeartbeatFor: Duration = 15.minutes,
 ) = runBlocking {
   if (logDs != null) {
     require(logDialect != null) {
@@ -118,6 +82,8 @@ fun start(
             minLogLevel = minLogLevel,
             logMessages = logMessages.stream,
           )
+
+          yield()
         }
 
         log.info("Launching jobScheduler...")
@@ -134,6 +100,8 @@ fun start(
           timeBetweenScans = timeBetweenScans,
         )
 
+        yield()
+
         log.info("Launching jobStatusCleaner...")
         jobStatusCleaner(
           log = NamedLog(
@@ -145,6 +113,8 @@ fun start(
           jobStatuses = jobStatuses,
           timeBetweenScans = timeBetweenScans,
         )
+
+        yield()
 
         if (logDs != null) {
           log.info("Launching dbLogger...")
@@ -165,6 +135,8 @@ fun start(
             jobResults = jobResults,
             minLogLevel = minLogLevel,
           )
+
+          yield()
         }
 
         if (logJobStatusChanges) {
@@ -177,6 +149,8 @@ fun start(
               minLogLevel = minLogLevel,
             ),
           )
+
+          yield()
         }
 
         if (logDs != null) {
@@ -189,6 +163,8 @@ fun start(
             logMessages = logMessages,
             minLogLevel = minLogLevel,
           )
+
+          yield()
         }
 
         log.info("Launching jobRunner...")
@@ -213,8 +189,8 @@ fun start(
             minLogLevel = minLogLevel,
           ),
           jobResults = jobResults,
-          maxTimeToWait = 15.minutes,
-          timeBetweenChecks = 5.minutes,
+          maxTimeToWait = considerDeadIfNoHeartbeatFor,
+          timeBetweenChecks = checkForHeartbeatEvery,
         )
       }
 
@@ -225,8 +201,8 @@ fun start(
       scope.cancel()
     }
 
-    println("Restarting in 5 minutes...")
+    println("Restarting in ${minTimeBetweenRestarts.inWholeSeconds} seconds...")
 
-    delay(5.minutes)
+    delay(minTimeBetweenRestarts)
   }
 }

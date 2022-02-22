@@ -4,7 +4,7 @@ package ketl.adapter.sqlite
 
 import ketl.domain.DbJobResultsRepo
 import ketl.domain.JobResult
-import ketl.domain.KETLErrror
+import ketl.domain.KETLError
 import ketl.domain.Log
 import java.sql.Connection
 import java.sql.Timestamp
@@ -93,7 +93,7 @@ data class SQLiteJobResultsRepo(
               start = startTime,
               end = endTime,
             )
-            else -> throw KETLErrror.UnrecognizedResultTypeName(resultTypeName)
+            else -> throw KETLError.UnrecognizedResultTypeName(resultTypeName)
           }
 
           jobResults.add(jobResult)

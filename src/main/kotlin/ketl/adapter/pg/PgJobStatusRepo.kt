@@ -2,7 +2,7 @@ package ketl.adapter.pg
 
 import ketl.domain.DbJobStatusRepo
 import ketl.domain.JobStatus
-import ketl.domain.KETLErrror
+import ketl.domain.KETLError
 import ketl.domain.Log
 import java.sql.Connection
 import java.sql.ResultSet
@@ -312,6 +312,6 @@ internal fun getJobStatusFromResultSet(resultSet: ResultSet): JobStatus {
       val errorMessage = resultSet.getString("error_message")
       JobStatus.Failed(jobName = jobName, ts = ts, errorMessage = errorMessage)
     }
-    else -> throw KETLErrror.UnrecognizedStatusName(statusName)
+    else -> throw KETLError.UnrecognizedStatusName(statusName)
   }
 }
