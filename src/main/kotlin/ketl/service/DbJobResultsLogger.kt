@@ -7,6 +7,8 @@ import ketl.domain.JobResults
 import ketl.domain.LogLevel
 import ketl.domain.LogMessages
 import ketl.domain.NamedLog
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import javax.sql.DataSource
@@ -17,7 +19,7 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.toJavaDuration
 
 @ExperimentalTime
-suspend fun dbJobResultsLogger(
+fun CoroutineScope.dbJobResultsLogger(
   dbDialect: DbDialect,
   ds: DataSource,
   schema: String? = "ketl",
@@ -26,7 +28,7 @@ suspend fun dbJobResultsLogger(
   jobResults: JobResults,
   durationToKeep: Duration = 5.days,
   runCleanupEvery: Duration = 30.minutes,
-) {
+) = launch {
   val repo = when (dbDialect) {
     DbDialect.PostgreSQL -> PgJobResultsRepo(
       schema = schema ?: "public",

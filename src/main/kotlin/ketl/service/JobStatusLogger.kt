@@ -3,8 +3,10 @@ package ketl.service
 import ketl.domain.JobStatus
 import ketl.domain.JobStatuses
 import ketl.domain.Log
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.Executors
@@ -12,10 +14,10 @@ import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
 @DelicateCoroutinesApi
-suspend fun jobStatusLogger(
+fun CoroutineScope.jobStatusLogger(
   jobStatuses: JobStatuses,
   log: Log,
-) {
+) = launch {
   val dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
 
   val latestStatuses = mutableMapOf<String, JobStatus>()

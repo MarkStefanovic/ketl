@@ -1,9 +1,9 @@
 package ketl.domain
 
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -16,7 +16,7 @@ import kotlin.time.ExperimentalTime
 @ExperimentalCoroutinesApi
 @ExperimentalTime
 @DelicateCoroutinesApi
-suspend fun jobRunner(
+fun CoroutineScope.jobRunner(
   queue: JobQueue,
   results: JobResults,
   statuses: JobStatuses,
@@ -25,12 +25,12 @@ suspend fun jobRunner(
   maxSimultaneousJobs: Int,
   timeBetweenScans: Duration,
   minLogLevel: LogLevel,
-) = coroutineScope {
+) = launch {
   val limitedDispatcher = dispatcher.limitedParallelism(maxSimultaneousJobs)
 
   val log = NamedLog(name = "jobRunner", logMessages = logMessages, minLogLevel = minLogLevel)
 
-  while (coroutineContext.isActive) {
+  while (isActive) {
     val job = queue.pop()
 
     if (job == null) {
@@ -57,88 +57,93 @@ suspend fun jobRunner(
 
 @DelicateCoroutinesApi
 @ExperimentalTime
-private suspend fun runJob(
+private fun CoroutineScope.runJob(
   results: JobResults,
   statuses: JobStatuses,
   log: Log,
   job: KETLJob,
-) = withTimeoutOrNull(timeout = job.timeout) {
-  val start = LocalDateTime.now()
+) = launch {
+  withTimeoutOrNull(timeout = job.timeout) {
+    val start = LocalDateTime.now()
 
-  try {
-    log.debug("Starting ${job.name}...")
+    try {
+      log.debug("Starting ${job.name}...")
 
-    statuses.add(JobStatus.Running(jobName = job.name, ts = start))
+      statuses.add(JobStatus.Running(jobName = job.name, ts = start))
 
-    val result = runWithRetry(
-      job = job,
-      log = log,
-      start = start,
-      retries = 0,
-    )
-    results.add(result)
-
-    when (result) {
-      is JobResult.Cancelled -> {
-        statuses.add(
-          JobStatus.Cancelled(
-            jobName = job.name,
-            ts = LocalDateTime.now(),
-          )
-        )
-        log.info("${result.jobName} was cancelled.")
-      }
-      is JobResult.Failed -> {
-        statuses.add(
-          JobStatus.Failed(
-            jobName = job.name,
-            ts = LocalDateTime.now(),
-            errorMessage = result.errorMessage,
-          )
-        )
-        log.error("${result.jobName} failed: ${result.errorMessage}")
-      }
-      is JobResult.Successful -> {
-        statuses.add(
-          JobStatus.Success(
-            jobName = job.name,
-            ts = LocalDateTime.now(),
-          )
-        )
-        log.debug("${result.jobName} finished successfully.")
-      }
-      is JobResult.Skipped -> {
-        statuses.add(
-          JobStatus.Skipped(
-            jobName = job.name,
-            ts = LocalDateTime.now(),
-            reason = result.reason,
-          )
-        )
-        log.info("${result.jobName} was skipped.")
-      }
-    }
-
-    log.debug("Finished ${job.name}")
-  } catch (ce: CancellationException) {
-    throw ce
-  } catch (e: Exception) {
-    statuses.add(
-      JobStatus.Failed(
-        jobName = job.name,
-        ts = LocalDateTime.now(),
-        errorMessage = e.message ?: "No error message was provided.",
-      )
-    )
-    results.add(
-      JobResult.Failed(
-        jobName = job.name,
+      val result = runWithRetry(
+        job = job,
+        log = log,
         start = start,
-        end = LocalDateTime.now(),
-        errorMessage = e.message ?: "No error message was provided.",
+        retries = 0,
       )
-    )
-    log.error("An unexpected error occurred while running ${job.name}: ${e.message}\n${e.stackTraceToString()}")
+      results.add(result)
+
+      when (result) {
+        is JobResult.Cancelled -> {
+          statuses.add(
+            JobStatus.Cancelled(
+              jobName = job.name,
+              ts = LocalDateTime.now(),
+            )
+          )
+          log.info("${result.jobName} was cancelled.")
+        }
+        is JobResult.Failed -> {
+          statuses.add(
+            JobStatus.Failed(
+              jobName = job.name,
+              ts = LocalDateTime.now(),
+              errorMessage = result.errorMessage,
+            )
+          )
+          log.error("${result.jobName} failed: ${result.errorMessage}")
+        }
+        is JobResult.Successful -> {
+          statuses.add(
+            JobStatus.Success(
+              jobName = job.name,
+              ts = LocalDateTime.now(),
+            )
+          )
+          log.debug("${result.jobName} finished successfully.")
+        }
+        is JobResult.Skipped -> {
+          statuses.add(
+            JobStatus.Skipped(
+              jobName = job.name,
+              ts = LocalDateTime.now(),
+              reason = result.reason,
+            )
+          )
+          log.info("${result.jobName} was skipped.")
+        }
+      }
+
+      log.debug("Finished ${job.name}")
+    } catch (e: Exception) {
+      if (e is CancellationException) {
+        println("Cancelled ${job.name}.")
+        throw e
+      }
+
+      statuses.add(
+        JobStatus.Failed(
+          jobName = job.name,
+          ts = LocalDateTime.now(),
+          errorMessage = e.message ?: "No error message was provided.",
+        )
+      )
+      results.add(
+        JobResult.Failed(
+          jobName = job.name,
+          start = start,
+          end = LocalDateTime.now(),
+          errorMessage = e.message ?: "No error message was provided.",
+        )
+      )
+      log.error("An unexpected error occurred while running ${job.name}: ${e.message}\n${e.stackTraceToString()}")
+    }
   }
 }
 
@@ -180,9 +185,11 @@ suspend fun runWithRetry(
         end = LocalDateTime.now(),
       )
     }
-  } catch (ce: CancellationException) {
-    throw ce
   } catch (e: Exception) {
+    if (e is CancellationException) {
+      throw e
+    }
+
     log.error("An exception occurred while running ${job.name}: ${e.message}\n${e.stackTraceToString()}")
 
     if (retries >= job.maxRetries) {

@@ -8,7 +8,6 @@ import ketl.domain.DefaultJobResults
 import ketl.domain.DefaultJobStatuses
 import ketl.domain.JobResults
 import ketl.domain.JobService
-import ketl.domain.KETLErrror
 import ketl.domain.Log
 import ketl.domain.LogLevel
 import ketl.domain.LogMessages
@@ -23,12 +22,14 @@ import ketl.service.jobStatusCleaner
 import ketl.service.jobStatusLogger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -40,13 +41,13 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 
-suspend fun startHeartbeat(
+fun CoroutineScope.heartbeat(
   log: Log,
   jobResults: JobResults,
   maxTimeToWait: Duration,
   timeBetweenChecks: Duration,
-) {
-  while (true) {
+) = launch {
+  while (isActive) {
     val latestResults = withTimeout(10.seconds) {
       jobResults.getLatestResults()
     }
@@ -61,7 +62,13 @@ suspend fun startHeartbeat(
       }
 
       if (secondsSinceLastResult > maxTimeToWait.inWholeSeconds) {
-        throw KETLErrror.JobResultsStopped(secondsSinceLastResult.seconds)
+        log.info("Cancelling services...")
+        cancel(
+          CancellationException(
+            "The latest job results were received $secondsSinceLastResult seconds ago.  " +
+              "Something must have gone wrong."
+          )
+        )
       }
     }
     delay(timeBetweenChecks)
@@ -79,8 +86,6 @@ fun start(
   maxSimultaneousJobs: Int = 10,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
   timeBetweenScans: Duration = 10.seconds,
-  restartOnFailure: Boolean = true,
-  timeBetweenRestarts: Duration = 10.minutes,
   logJobMessagesToConsole: Boolean = false,
   logJobStatusChanges: Boolean = false,
   minLogLevel: LogLevel = LogLevel.Info,
@@ -92,20 +97,30 @@ fun start(
   }
 
   while (true) {
-    val logMessages = LogMessages()
+    val scope = CoroutineScope(Job() + Dispatchers.Default)
 
     try {
+      val logMessages = LogMessages()
+
       val jobStatuses = DefaultJobStatuses()
       val jobResults = DefaultJobResults()
       val jobQueue = DefaultJobQueue()
+      val log = NamedLog(
+        name = "ketl",
+        logMessages = logMessages,
+        minLogLevel = minLogLevel,
+      )
 
-      val job = Job()
+      scope.launch {
+        if (logJobMessagesToConsole) {
+          log.info("Launching consoleLogger...")
+          consoleLogger(
+            minLogLevel = minLogLevel,
+            logMessages = logMessages.stream,
+          )
+        }
 
-      job.invokeOnCompletion {
-        job.cancelChildren(it as? CancellationException)
-      }
-
-      launch(job) {
+        log.info("Launching jobScheduler...")
         jobScheduler(
           log = NamedLog(
             name = "jobScheduler",
@@ -118,9 +133,8 @@ fun start(
           statuses = jobStatuses,
           timeBetweenScans = timeBetweenScans,
         )
-      }
 
-      launch(job) {
+        log.info("Launching jobStatusCleaner...")
         jobStatusCleaner(
           log = NamedLog(
             name = "jobStatusCleaner",
@@ -131,9 +145,53 @@ fun start(
           jobStatuses = jobStatuses,
           timeBetweenScans = timeBetweenScans,
         )
-      }
 
-      launch(job) {
+        if (logDs != null) {
+          log.info("Launching dbLogger...")
+          dbLogger(
+            dbDialect = logDialect!!,
+            ds = logDs,
+            schema = logSchema,
+            minLogLevel = minLogLevel,
+            logMessages = logMessages,
+          )
+
+          log.info("Launching dbJobResultsLogger...")
+          dbJobResultsLogger(
+            dbDialect = logDialect,
+            ds = logDs,
+            schema = logSchema,
+            logMessages = logMessages,
+            jobResults = jobResults,
+            minLogLevel = minLogLevel,
+          )
+        }
+
+        if (logJobStatusChanges) {
+          log.info("Launching jobStatusLogger...")
+          jobStatusLogger(
+            jobStatuses = jobStatuses,
+            log = NamedLog(
+              name = "jobStatusLogger",
+              logMessages = logMessages,
+              minLogLevel = minLogLevel,
+            ),
+          )
+        }
+
+        if (logDs != null) {
+          log.info("Launching dbJobStatusLogger...")
+          dbJobStatusLogger(
+            ds = logDs,
+            dbDialect = logDialect!!,
+            schema = logSchema,
+            jobStatuses = jobStatuses,
+            logMessages = logMessages,
+            minLogLevel = minLogLevel,
+          )
+        }
+
+        log.info("Launching jobRunner...")
         jobRunner(
           queue = jobQueue,
           results = jobResults,
@@ -146,8 +204,9 @@ fun start(
         )
       }
 
-      launch(job) {
-        startHeartbeat(
+      val job = scope.launch {
+        log.info("Launching heartbeat...")
+        heartbeat(
           log = NamedLog(
             name = "heartbeat",
             logMessages = logMessages,
@@ -159,75 +218,15 @@ fun start(
         )
       }
 
-      if (logJobMessagesToConsole) {
-        launch(job) {
-          consoleLogger(
-            minLogLevel = LogLevel.Debug,
-            logMessages = logMessages.stream,
-          )
-        }
-      }
-
-      if (logDs != null) {
-        launch(job) {
-          dbLogger(
-            dbDialect = logDialect!!,
-            ds = logDs,
-            schema = logSchema,
-            minLogLevel = minLogLevel,
-            logMessages = logMessages,
-          )
-        }
-
-        launch(job) {
-          dbJobResultsLogger(
-            dbDialect = logDialect!!,
-            ds = logDs,
-            schema = logSchema,
-            logMessages = logMessages,
-            jobResults = jobResults,
-            minLogLevel = minLogLevel,
-          )
-        }
-      }
-
-      if (logJobStatusChanges) {
-        launch(job) {
-          jobStatusLogger(
-            jobStatuses = jobStatuses,
-            log = NamedLog(
-              name = "jobStatusLogger",
-              logMessages = logMessages,
-              minLogLevel = minLogLevel,
-            ),
-          )
-        }
-
-        if (logDs != null) {
-          launch(job) {
-            dbJobStatusLogger(
-              ds = logDs,
-              dbDialect = logDialect!!,
-              schema = logSchema,
-              jobStatuses = jobStatuses,
-              logMessages = logMessages,
-              minLogLevel = minLogLevel,
-            )
-          }
-        }
-      }
-
       job.join()
-    } catch (e: Throwable) {
+    } catch (e: Exception) {
       e.printStackTrace()
-
-      if (restartOnFailure) {
-        println("Restarting in $timeBetweenRestarts...")
-
-        delay(timeBetweenRestarts)
-      } else {
-        throw e
-      }
+    } finally {
+      scope.cancel()
     }
+
+    println("Restarting in 5 minutes...")
+
+    delay(5.minutes)
   }
 }

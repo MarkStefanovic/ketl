@@ -7,6 +7,8 @@ import ketl.domain.LogLevel
 import ketl.domain.LogMessages
 import ketl.domain.NamedLog
 import ketl.domain.gte
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import javax.sql.DataSource
@@ -17,7 +19,7 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.toJavaDuration
 
 @ExperimentalTime
-suspend fun dbLogger(
+fun CoroutineScope.dbLogger(
   ds: DataSource,
   dbDialect: DbDialect,
   logMessages: LogMessages,
@@ -26,7 +28,7 @@ suspend fun dbLogger(
   durationToKeep: Duration = 5.days,
   runCleanupEvery: Duration = 30.minutes,
   excludeLogNames: Set<String> = setOf("jobStatusLogger", "ketl"),
-) {
+) = launch {
   var lastCleanup = LocalDateTime.now()
 
   val repo = when (dbDialect) {

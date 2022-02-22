@@ -1,24 +1,25 @@
 package ketl.domain
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.time.LocalDateTime
-import kotlin.coroutines.coroutineContext
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
 @DelicateCoroutinesApi
-suspend fun jobScheduler(
+fun CoroutineScope.jobScheduler(
   jobService: JobService,
   queue: JobQueue,
   results: JobResults,
   statuses: JobStatuses,
   timeBetweenScans: Duration,
   log: Log,
-) {
-  while (coroutineContext.isActive) {
+) = launch {
+  while (isActive) {
     val activeJobs = jobService.getActiveJobs()
 
     val validationResult = validateJobs(activeJobs)
