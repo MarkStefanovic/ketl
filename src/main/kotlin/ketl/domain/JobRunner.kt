@@ -4,13 +4,12 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDateTime
 import kotlin.coroutines.cancellation.CancellationException
-import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
 @ExperimentalCoroutinesApi
@@ -23,7 +22,6 @@ fun CoroutineScope.jobRunner(
   logMessages: LogMessages,
   dispatcher: CoroutineDispatcher,
   maxSimultaneousJobs: Int,
-  timeBetweenScans: Duration,
   minLogLevel: LogLevel,
 ) = launch {
   val limitedDispatcher = dispatcher.limitedParallelism(maxSimultaneousJobs)
@@ -48,21 +46,17 @@ fun CoroutineScope.jobRunner(
         )
       }
     }
-
-    log.debug("Waiting ${timeBetweenScans.inWholeSeconds} seconds to scan again.")
-
-    delay(timeBetweenScans)
   }
 }
 
 @DelicateCoroutinesApi
 @ExperimentalTime
-private fun CoroutineScope.runJob(
+private fun runJob(
   results: JobResults,
   statuses: JobStatuses,
   log: Log,
   job: KETLJob,
-) = launch {
+) = runBlocking {
   withTimeoutOrNull(timeout = job.timeout) {
     val start = LocalDateTime.now()
 

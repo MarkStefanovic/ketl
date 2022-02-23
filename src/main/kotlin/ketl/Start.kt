@@ -175,7 +175,6 @@ fun start(
           logMessages = logMessages,
           dispatcher = dispatcher,
           maxSimultaneousJobs = maxSimultaneousJobs,
-          timeBetweenScans = timeBetweenScans,
           minLogLevel = minLogLevel,
         )
       }
