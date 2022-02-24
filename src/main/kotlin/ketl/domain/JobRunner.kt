@@ -4,10 +4,11 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.withTimeout
 import java.time.LocalDateTime
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.ExperimentalTime
@@ -57,10 +58,10 @@ private fun runJob(
   log: Log,
   job: KETLJob,
 ) = runBlocking {
-  withTimeoutOrNull(timeout = job.timeout) {
-    val start = LocalDateTime.now()
+  val start = LocalDateTime.now()
 
-    try {
+  try {
+    withTimeout(timeout = job.timeout) {
       log.debug("Starting ${job.name}...")
 
       statuses.add(JobStatus.Running(jobName = job.name, ts = start))
@@ -115,29 +116,35 @@ private fun runJob(
       }
 
       log.debug("Finished ${job.name}")
-    } catch (e: Exception) {
-      if (e is CancellationException) {
-        println("Cancelled ${job.name}.")
+    }
+  } catch (e: Exception) {
+    if (e is CancellationException) {
+      if (e is TimeoutCancellationException) {
+        log.error("${job.name} timed out.")
+      } else {
+        log.info("Cancelled ${job.name}.")
         throw e
       }
-
-      statuses.add(
-        JobStatus.Failed(
-          jobName = job.name,
-          ts = LocalDateTime.now(),
-          errorMessage = e.message ?: "No error message was provided.",
-        )
-      )
-      results.add(
-        JobResult.Failed(
-          jobName = job.name,
-          start = start,
-          end = LocalDateTime.now(),
-          errorMessage = e.message ?: "No error message was provided.",
-        )
-      )
-      log.error("An unexpected error occurred while running ${job.name}: ${e.message}\n${e.stackTraceToString()}")
     }
+
+    statuses.add(
+      JobStatus.Failed(
+        jobName = job.name,
+        ts = LocalDateTime.now(),
+        errorMessage = e.message ?: "No error message was provided.",
+      )
+    )
+
+    results.add(
+      JobResult.Failed(
+        jobName = job.name,
+        start = start,
+        end = LocalDateTime.now(),
+        errorMessage = e.message ?: "No error message was provided.",
+      )
+    )
+
+    log.error("An unexpected error occurred while running ${job.name}: ${e.message}\n${e.stackTraceToString()}")
   }
 }
 
