@@ -212,14 +212,14 @@ fun start(
         println(defaultLogFormat(message))
 
         if ((logDs != null) && (logDialect != null)) {
-          logDs.connection.use { con ->
-            val logRepo = when (logDialect) {
-              DbDialect.PostgreSQL -> PgLogRepo(ds = logDs, schema = logSchema ?: "public")
-              DbDialect.SQLite -> SQLiteLogRepo(ds = logDs)
-            }
-
-            logRepo.add(message)
+          val logRepo = when (logDialect) {
+            DbDialect.PostgreSQL -> PgLogRepo(ds = logDs, schema = logSchema ?: "public")
+            DbDialect.SQLite -> SQLiteLogRepo(ds = logDs)
           }
+
+          logRepo.createTable()
+
+          logRepo.add(message)
         }
       }
 
