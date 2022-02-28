@@ -3,9 +3,9 @@ package ketl.domain
 import java.time.LocalDateTime
 
 interface DbLogRepo {
-  suspend fun add(message: LogMessage)
+  fun add(message: LogMessage): SQLResult
 
-  suspend fun createTable()
+  fun createTable(): SQLResult
 
-  suspend fun deleteBefore(ts: LocalDateTime)
+  fun deleteBefore(ts: LocalDateTime): SQLResult
 }

@@ -5,7 +5,7 @@ import ketl.adapter.sqlite.SQLiteLogRepo
 import ketl.domain.DbDialect
 import ketl.domain.LogLevel
 import ketl.domain.LogMessages
-import ketl.domain.NamedLog
+import ketl.domain.SQLResult
 import ketl.domain.gte
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -28,32 +28,24 @@ fun CoroutineScope.dbLogger(
   durationToKeep: Duration = 5.days,
   runCleanupEvery: Duration = 30.minutes,
   excludeLogNames: Set<String> = setOf("jobStatusLogger", "ketl"),
+  showSQL: Boolean = false,
 ) = launch {
   var lastCleanup = LocalDateTime.now()
 
   val repo = when (dbDialect) {
-    DbDialect.PostgreSQL -> PgLogRepo(
-      ds = ds,
-      schema = schema ?: "public",
-      log = NamedLog(
-        name = "pgLogger",
-        logMessages = logMessages,
-        minLogLevel = minLogLevel,
-      ),
-    )
-    DbDialect.SQLite -> SQLiteLogRepo(
-      ds = ds,
-      log = NamedLog(
-        name = "sqliteLogger",
-        logMessages = logMessages,
-        minLogLevel = minLogLevel,
-      ),
-    )
+    DbDialect.PostgreSQL -> PgLogRepo(ds = ds, schema = schema ?: "public")
+    DbDialect.SQLite -> SQLiteLogRepo(ds = ds)
   }
 
-  repo.createTable()
+  when (val result = repo.createTable()) {
+    is SQLResult.Error -> throw result.error
+    is SQLResult.Success -> if (showSQL) println(result)
+  }
 
-  repo.deleteBefore(LocalDateTime.now() - durationToKeep.toJavaDuration())
+  when (val result = repo.deleteBefore(LocalDateTime.now() - durationToKeep.toJavaDuration())) {
+    is SQLResult.Error -> throw result.error
+    is SQLResult.Success -> if (showSQL) println(result)
+  }
 
   logMessages.stream.collect { logMessage ->
     if (logMessage.loggerName !in excludeLogNames) {
@@ -61,12 +53,18 @@ fun CoroutineScope.dbLogger(
         val timeSinceLastCleanup = lastCleanup.until(LocalDateTime.now(), ChronoUnit.SECONDS)
 
         if (timeSinceLastCleanup > runCleanupEvery.inWholeSeconds) {
-          repo.deleteBefore(LocalDateTime.now() - durationToKeep.toJavaDuration())
+          when (val result = repo.deleteBefore(LocalDateTime.now() - durationToKeep.toJavaDuration())) {
+            is SQLResult.Error -> throw result.error
+            is SQLResult.Success -> if (showSQL) println(result)
+          }
 
           lastCleanup = LocalDateTime.now()
         }
 
-        repo.add(logMessage)
+        when (val result = repo.add(logMessage)) {
+          is SQLResult.Error -> throw result.error
+          is SQLResult.Success -> if (showSQL) println(result)
+        }
       }
     }
   }

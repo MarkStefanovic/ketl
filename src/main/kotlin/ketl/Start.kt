@@ -2,14 +2,18 @@
 
 package ketl
 
+import ketl.adapter.pg.PgLogRepo
+import ketl.adapter.sqlite.SQLiteLogRepo
 import ketl.domain.DbDialect
 import ketl.domain.DefaultJobQueue
 import ketl.domain.DefaultJobResults
 import ketl.domain.DefaultJobStatuses
 import ketl.domain.JobService
 import ketl.domain.LogLevel
+import ketl.domain.LogMessage
 import ketl.domain.LogMessages
 import ketl.domain.NamedLog
+import ketl.domain.defaultLogFormat
 import ketl.domain.jobRunner
 import ketl.domain.jobScheduler
 import ketl.service.consoleLogger
@@ -30,6 +34,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
+import java.time.LocalDateTime
 import javax.sql.DataSource
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
@@ -53,6 +58,7 @@ fun start(
   minTimeBetweenRestarts: Duration = 5.minutes,
   checkForHeartbeatEvery: Duration = 5.minutes,
   considerDeadIfNoHeartbeatFor: Duration = 15.minutes,
+  showSQL: Boolean = false,
 ) = runBlocking {
   if (logDs != null) {
     require(logDialect != null) {
@@ -63,17 +69,18 @@ fun start(
   while (true) {
     val scope = CoroutineScope(Job() + Dispatchers.Default)
 
-    try {
-      val logMessages = LogMessages()
+    val logMessages = LogMessages()
 
+    val log = NamedLog(
+      name = "ketl",
+      logMessages = logMessages,
+      minLogLevel = minLogLevel,
+    )
+
+    try {
       val jobStatuses = DefaultJobStatuses()
       val jobResults = DefaultJobResults()
       val jobQueue = DefaultJobQueue()
-      val log = NamedLog(
-        name = "ketl",
-        logMessages = logMessages,
-        minLogLevel = minLogLevel,
-      )
 
       scope.launch {
         if (logJobMessagesToConsole) {
@@ -116,14 +123,15 @@ fun start(
 
         yield()
 
-        if (logDs != null) {
+        if ((logDs != null) && (logDialect != null)) {
           log.info("Launching dbLogger...")
           dbLogger(
-            dbDialect = logDialect!!,
+            dbDialect = logDialect,
             ds = logDs,
             schema = logSchema,
             minLogLevel = minLogLevel,
             logMessages = logMessages,
+            showSQL = showSQL,
           )
 
           log.info("Launching dbJobResultsLogger...")
@@ -193,14 +201,34 @@ fun start(
         )
       }
 
+      job.invokeOnCompletion {
+        val message = LogMessage(
+          loggerName = "ketl",
+          level = LogLevel.Error,
+          message = "Heartbeat stopped.  Restarting services in ${minTimeBetweenRestarts.inWholeSeconds} seconds...",
+          ts = LocalDateTime.now(),
+        )
+
+        println(defaultLogFormat(message))
+
+        if ((logDs != null) && (logDialect != null)) {
+          logDs.connection.use { con ->
+            val logRepo = when (logDialect) {
+              DbDialect.PostgreSQL -> PgLogRepo(ds = logDs, schema = logSchema ?: "public")
+              DbDialect.SQLite -> SQLiteLogRepo(ds = logDs)
+            }
+
+            logRepo.add(message)
+          }
+        }
+      }
+
       job.join()
     } catch (e: Exception) {
       e.printStackTrace()
     } finally {
       scope.cancel()
     }
-
-    println("Restarting in ${minTimeBetweenRestarts.inWholeSeconds} seconds...")
 
     delay(minTimeBetweenRestarts)
   }

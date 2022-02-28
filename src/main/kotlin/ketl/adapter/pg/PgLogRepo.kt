@@ -3,8 +3,8 @@
 package ketl.adapter.pg
 
 import ketl.domain.DbLogRepo
-import ketl.domain.Log
 import ketl.domain.LogMessage
+import ketl.domain.SQLResult
 import java.sql.Timestamp
 import java.time.LocalDateTime
 import javax.sql.DataSource
@@ -12,13 +12,10 @@ import javax.sql.DataSource
 class PgLogRepo(
   private val ds: DataSource,
   private val schema: String,
-  private val log: Log,
 ) : DbLogRepo {
-
-  override suspend fun createTable() {
-    ds.connection.use { con ->
-      // language=PostgreSQL
-      val createTableSQL = """
+  override fun createTable(): SQLResult {
+    // language=PostgreSQL
+    val createTableSQL = """
       |CREATE TABLE IF NOT EXISTS $schema.log (
       |  id SERIAL PRIMARY KEY
       |, log_name TEXT NOT NULL CHECK (LENGTH(log_name) > 0)
@@ -28,37 +25,44 @@ class PgLogRepo(
       |)
     """.trimMargin()
 
-      log.debug(createTableSQL)
+    // language=PostgreSQL
+    val createTsIndexSQL = """
+      |CREATE INDEX IF NOT EXISTS ix_log_ts 
+      |  ON $schema.log (ts)
+    """.trimMargin()
 
-      // language=PostgreSQL
-      val createTsIndexSQL = """
-        |CREATE INDEX IF NOT EXISTS ix_log_ts 
-        |  ON $schema.log (ts)
-      """.trimMargin()
+    // language=PostgreSQL
+    val createLogNameIndexSQL = """
+      |CREATE INDEX IF NOT EXISTS ix_log_log_name 
+      |  ON $schema.log (log_name)
+    """.trimMargin()
 
-      log.debug(createTsIndexSQL)
+    return try {
+      ds.connection.use { con ->
+        con.createStatement().use { statement ->
+          statement.queryTimeout = 60
 
-      // language=PostgreSQL
-      val createLogNameIndexSQL = """
-        |CREATE INDEX IF NOT EXISTS ix_log_log_name 
-        |  ON $schema.log (log_name)
-      """.trimMargin()
+          statement.executeUpdate(createTableSQL)
 
-      log.debug(createLogNameIndexSQL)
+          statement.executeUpdate(createTsIndexSQL)
 
-      con.createStatement().use { statement ->
-        statement.queryTimeout = 60
-
-        statement.executeUpdate(createTableSQL)
-
-        statement.executeUpdate(createTsIndexSQL)
-
-        statement.executeUpdate(createLogNameIndexSQL)
+          statement.executeUpdate(createLogNameIndexSQL)
+        }
       }
+
+      SQLResult.Success(
+        sql = "$createTableSQL;\n$createTsIndexSQL;\n$createLogNameIndexSQL;",
+        parameters = null,
+      )
+    } catch (e: Exception) {
+      SQLResult.Error(
+        sql = "$createTableSQL;\n$createTsIndexSQL;\n$createLogNameIndexSQL;",
+        error = e,
+      )
     }
   }
 
-  override suspend fun add(message: LogMessage) {
+  override fun add(message: LogMessage): SQLResult {
     // language=PostgreSQL
     val sql = """
       |INSERT INTO $schema.log (
@@ -74,39 +78,64 @@ class PgLogRepo(
       |)
     """.trimMargin()
 
-    log.debug(sql)
+    return try {
+      ds.connection.use { con ->
+        con.prepareStatement(sql).use { preparedStatement ->
+          preparedStatement.queryTimeout = 60
 
-    ds.connection.use { con ->
-      con.prepareStatement(sql).use { preparedStatement ->
-        preparedStatement.queryTimeout = 60
+          preparedStatement.setString(1, message.loggerName)
+          preparedStatement.setString(2, message.level.name.lowercase())
+          preparedStatement.setString(3, message.message)
+          preparedStatement.setTimestamp(4, Timestamp.valueOf(message.ts))
 
-        preparedStatement.setString(1, message.loggerName)
-        preparedStatement.setString(2, message.level.name.lowercase())
-        preparedStatement.setString(3, message.message)
-        preparedStatement.setTimestamp(4, Timestamp.valueOf(message.ts))
-
-        preparedStatement.executeUpdate()
+          preparedStatement.executeUpdate()
+        }
       }
+
+      SQLResult.Success(
+        sql = sql,
+        parameters = mapOf(
+          "log_name" to message.loggerName,
+          "log_level" to message.level.name.lowercase(),
+          "message" to message.message,
+          "ts" to Timestamp.valueOf(message.ts),
+        )
+      )
+    } catch (e: Exception) {
+      SQLResult.Error(
+        sql = sql,
+        error = e,
+      )
     }
   }
 
-  override suspend fun deleteBefore(ts: LocalDateTime) {
+  override fun deleteBefore(ts: LocalDateTime): SQLResult {
     // language=PostgreSQL
     val sql = """
       |DELETE FROM $schema.log 
       |WHERE ts < ?
     """.trimMargin()
 
-    log.debug(sql)
+    return try {
+      ds.connection.use { con ->
+        con.prepareStatement(sql).use { preparedStatement ->
+          preparedStatement.queryTimeout = 60
 
-    ds.connection.use { con ->
-      con.prepareStatement(sql).use { preparedStatement ->
-        preparedStatement.queryTimeout = 60
+          preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
 
-        preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
-
-        preparedStatement.executeUpdate()
+          preparedStatement.executeUpdate()
+        }
       }
+
+      SQLResult.Success(
+        sql = sql,
+        parameters = mapOf("ts" to Timestamp.valueOf(ts)),
+      )
+    } catch (e: Exception) {
+      SQLResult.Error(
+        sql = sql,
+        error = e,
+      )
     }
   }
 }
