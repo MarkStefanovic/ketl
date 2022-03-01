@@ -30,10 +30,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.yield
 import java.time.LocalDateTime
 import javax.sql.DataSource
 import kotlin.time.Duration
@@ -44,7 +45,7 @@ import kotlin.time.ExperimentalTime
 @ExperimentalCoroutinesApi
 @DelicateCoroutinesApi
 @ExperimentalTime
-fun start(
+suspend fun start(
   jobService: JobService,
   logDs: DataSource?,
   logDialect: DbDialect?,
@@ -59,14 +60,14 @@ fun start(
   checkForHeartbeatEvery: Duration = 5.minutes,
   considerDeadIfNoHeartbeatFor: Duration = 15.minutes,
   showSQL: Boolean = false,
-) = runBlocking {
+) = coroutineScope {
   if (logDs != null) {
     require(logDialect != null) {
       "If a logDs is provided, then logDialect is required."
     }
   }
 
-  while (true) {
+  while (isActive) {
     val scope = CoroutineScope(Job() + Dispatchers.Default)
 
     val logMessages = LogMessages()
@@ -83,17 +84,16 @@ fun start(
 
     val services = scope.launch {
       if (logJobMessagesToConsole) {
-        log.info("Launching consoleLogger...")
         consoleLogger(
           minLogLevel = minLogLevel,
           logMessages = logMessages.stream,
         )
+        log.info("Launched consoleLogger.")
 
-        ensureActive()
+        yield()
       }
 
       if ((logDs != null) && (logDialect != null)) {
-        log.info("Launching dbLogger...")
         dbLogger(
           dbDialect = logDialect,
           ds = logDs,
@@ -102,6 +102,7 @@ fun start(
           logMessages = logMessages,
           showSQL = showSQL,
         )
+        log.info("Launched dbLogger.")
 
         log.info("Launching dbJobResultsLogger...")
         dbJobResultsLogger(
@@ -113,7 +114,7 @@ fun start(
           minLogLevel = minLogLevel,
         )
 
-        ensureActive()
+        yield()
       }
 
       log.info("Launching jobScheduler...")
@@ -130,7 +131,7 @@ fun start(
         timeBetweenScans = timeBetweenScans,
       )
 
-      ensureActive()
+      yield()
 
       log.info("Launching jobStatusCleaner...")
       jobStatusCleaner(
@@ -144,7 +145,7 @@ fun start(
         timeBetweenScans = timeBetweenScans,
       )
 
-      ensureActive()
+      yield()
 
       if (logJobStatusChanges) {
         log.info("Launching jobStatusLogger...")
@@ -157,7 +158,7 @@ fun start(
           ),
         )
 
-        ensureActive()
+        yield()
       }
 
       if (logDs != null) {
@@ -171,7 +172,7 @@ fun start(
           minLogLevel = minLogLevel,
         )
 
-        ensureActive()
+        yield()
       }
 
       log.info("Launching jobRunner...")
