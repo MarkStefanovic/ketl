@@ -31,9 +31,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.yield
 import java.time.LocalDateTime
 import javax.sql.DataSource
 import kotlin.time.Duration
@@ -77,158 +77,154 @@ fun start(
       minLogLevel = minLogLevel,
     )
 
-    try {
-      val jobStatuses = DefaultJobStatuses()
-      val jobResults = DefaultJobResults()
-      val jobQueue = DefaultJobQueue()
+    val jobStatuses = DefaultJobStatuses()
+    val jobResults = DefaultJobResults()
+    val jobQueue = DefaultJobQueue()
 
-      scope.launch {
-        if (logJobMessagesToConsole) {
-          log.info("Launching consoleLogger...")
-          consoleLogger(
-            minLogLevel = minLogLevel,
-            logMessages = logMessages.stream,
-          )
-
-          yield()
-        }
-
-        log.info("Launching jobScheduler...")
-        jobScheduler(
-          log = NamedLog(
-            name = "jobScheduler",
-            logMessages = logMessages,
-            minLogLevel = minLogLevel,
-          ),
-          jobService = jobService,
-          queue = jobQueue,
-          results = jobResults,
-          statuses = jobStatuses,
-          timeBetweenScans = timeBetweenScans,
+    val services = scope.launch {
+      if (logJobMessagesToConsole) {
+        log.info("Launching consoleLogger...")
+        consoleLogger(
+          minLogLevel = minLogLevel,
+          logMessages = logMessages.stream,
         )
 
-        yield()
+        ensureActive()
+      }
 
-        log.info("Launching jobStatusCleaner...")
-        jobStatusCleaner(
-          log = NamedLog(
-            name = "jobStatusCleaner",
-            logMessages = logMessages,
-            minLogLevel = minLogLevel,
-          ),
-          jobService = jobService,
-          jobStatuses = jobStatuses,
-          timeBetweenScans = timeBetweenScans,
-        )
-
-        yield()
-
-        if ((logDs != null) && (logDialect != null)) {
-          log.info("Launching dbLogger...")
-          dbLogger(
-            dbDialect = logDialect,
-            ds = logDs,
-            schema = logSchema,
-            minLogLevel = minLogLevel,
-            logMessages = logMessages,
-            showSQL = showSQL,
-          )
-
-          log.info("Launching dbJobResultsLogger...")
-          dbJobResultsLogger(
-            dbDialect = logDialect,
-            ds = logDs,
-            schema = logSchema,
-            logMessages = logMessages,
-            jobResults = jobResults,
-            minLogLevel = minLogLevel,
-          )
-
-          yield()
-        }
-
-        if (logJobStatusChanges) {
-          log.info("Launching jobStatusLogger...")
-          jobStatusLogger(
-            jobStatuses = jobStatuses,
-            log = NamedLog(
-              name = "jobStatusLogger",
-              logMessages = logMessages,
-              minLogLevel = minLogLevel,
-            ),
-          )
-
-          yield()
-        }
-
-        if (logDs != null) {
-          log.info("Launching dbJobStatusLogger...")
-          dbJobStatusLogger(
-            ds = logDs,
-            dbDialect = logDialect!!,
-            schema = logSchema,
-            jobStatuses = jobStatuses,
-            logMessages = logMessages,
-            minLogLevel = minLogLevel,
-          )
-
-          yield()
-        }
-
-        log.info("Launching jobRunner...")
-        jobRunner(
-          queue = jobQueue,
-          results = jobResults,
-          statuses = jobStatuses,
+      if ((logDs != null) && (logDialect != null)) {
+        log.info("Launching dbLogger...")
+        dbLogger(
+          dbDialect = logDialect,
+          ds = logDs,
+          schema = logSchema,
+          minLogLevel = minLogLevel,
           logMessages = logMessages,
-          dispatcher = dispatcher,
-          maxSimultaneousJobs = maxSimultaneousJobs,
+          showSQL = showSQL,
+        )
+
+        log.info("Launching dbJobResultsLogger...")
+        dbJobResultsLogger(
+          dbDialect = logDialect,
+          ds = logDs,
+          schema = logSchema,
+          logMessages = logMessages,
+          jobResults = jobResults,
           minLogLevel = minLogLevel,
         )
+
+        ensureActive()
       }
 
-      val job = scope.launch {
-        log.info("Launching heartbeat...")
-        heartbeat(
+      log.info("Launching jobScheduler...")
+      jobScheduler(
+        log = NamedLog(
+          name = "jobScheduler",
+          logMessages = logMessages,
+          minLogLevel = minLogLevel,
+        ),
+        jobService = jobService,
+        queue = jobQueue,
+        results = jobResults,
+        statuses = jobStatuses,
+        timeBetweenScans = timeBetweenScans,
+      )
+
+      ensureActive()
+
+      log.info("Launching jobStatusCleaner...")
+      jobStatusCleaner(
+        log = NamedLog(
+          name = "jobStatusCleaner",
+          logMessages = logMessages,
+          minLogLevel = minLogLevel,
+        ),
+        jobService = jobService,
+        jobStatuses = jobStatuses,
+        timeBetweenScans = timeBetweenScans,
+      )
+
+      ensureActive()
+
+      if (logJobStatusChanges) {
+        log.info("Launching jobStatusLogger...")
+        jobStatusLogger(
+          jobStatuses = jobStatuses,
           log = NamedLog(
-            name = "heartbeat",
+            name = "jobStatusLogger",
             logMessages = logMessages,
             minLogLevel = minLogLevel,
           ),
-          jobResults = jobResults,
-          maxTimeToWait = considerDeadIfNoHeartbeatFor,
-          timeBetweenChecks = checkForHeartbeatEvery,
-        )
-      }
-
-      job.invokeOnCompletion {
-        val message = LogMessage(
-          loggerName = "ketl",
-          level = LogLevel.Error,
-          message = "Heartbeat stopped.  Restarting services in ${minTimeBetweenRestarts.inWholeSeconds} seconds...",
-          ts = LocalDateTime.now(),
         )
 
-        println(defaultLogFormat(message))
-
-        if ((logDs != null) && (logDialect != null)) {
-          val logRepo = when (logDialect) {
-            DbDialect.PostgreSQL -> PgLogRepo(ds = logDs, schema = logSchema ?: "public")
-            DbDialect.SQLite -> SQLiteLogRepo(ds = logDs)
-          }
-
-          logRepo.createTable()
-
-          logRepo.add(message)
-        }
+        ensureActive()
       }
 
-      job.join()
-    } catch (e: Exception) {
-      e.printStackTrace()
-    } finally {
-      scope.cancel()
+      if (logDs != null) {
+        log.info("Launching dbJobStatusLogger...")
+        dbJobStatusLogger(
+          ds = logDs,
+          dbDialect = logDialect!!,
+          schema = logSchema,
+          jobStatuses = jobStatuses,
+          logMessages = logMessages,
+          minLogLevel = minLogLevel,
+        )
+
+        ensureActive()
+      }
+
+      log.info("Launching jobRunner...")
+      jobRunner(
+        queue = jobQueue,
+        results = jobResults,
+        statuses = jobStatuses,
+        logMessages = logMessages,
+        dispatcher = dispatcher,
+        maxSimultaneousJobs = maxSimultaneousJobs,
+        minLogLevel = minLogLevel,
+      )
     }
+
+    val heartbeat = scope.launch {
+      log.info("Launching heartbeat...")
+      heartbeat(
+        log = NamedLog(
+          name = "heartbeat",
+          logMessages = logMessages,
+          minLogLevel = minLogLevel,
+        ),
+        jobResults = jobResults,
+        maxTimeToWait = considerDeadIfNoHeartbeatFor,
+        timeBetweenChecks = checkForHeartbeatEvery,
+      )
+    }
+
+    heartbeat.invokeOnCompletion {
+      val message = LogMessage(
+        loggerName = "ketl",
+        level = LogLevel.Error,
+        message = "Heartbeat stopped.  Restarting in ${minTimeBetweenRestarts.inWholeSeconds} seconds...",
+        ts = LocalDateTime.now(),
+      )
+
+      println(defaultLogFormat(message))
+
+      if ((logDs != null) && (logDialect != null)) {
+        val logRepo = when (logDialect) {
+          DbDialect.PostgreSQL -> PgLogRepo(ds = logDs, schema = logSchema ?: "public")
+          DbDialect.SQLite -> SQLiteLogRepo(ds = logDs)
+        }
+
+        logRepo.createTable()
+
+        logRepo.add(message)
+      }
+    }
+
+    heartbeat.join()
+    services.join()
+    scope.cancel()
 
     delay(minTimeBetweenRestarts)
   }
