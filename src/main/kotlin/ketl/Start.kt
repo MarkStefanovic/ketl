@@ -23,7 +23,6 @@ import ketl.service.dbLogger
 import ketl.service.heartbeat
 import ketl.service.jobStatusCleaner
 import ketl.service.jobStatusLogger
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
@@ -51,7 +50,6 @@ suspend fun start(
   logDialect: DbDialect?,
   logSchema: String?,
   maxSimultaneousJobs: Int = 10,
-  dispatcher: CoroutineDispatcher = Dispatchers.Default,
   timeBetweenScans: Duration = 10.seconds,
   logJobMessagesToConsole: Boolean = false,
   logJobStatusChanges: Boolean = false,
@@ -181,7 +179,6 @@ suspend fun start(
         results = jobResults,
         statuses = jobStatuses,
         logMessages = logMessages,
-        dispatcher = dispatcher,
         maxSimultaneousJobs = maxSimultaneousJobs,
         minLogLevel = minLogLevel,
       )

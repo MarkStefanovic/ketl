@@ -1,13 +1,15 @@
 package ketl.domain
 
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import java.time.LocalDateTime
 import kotlin.coroutines.cancellation.CancellationException
@@ -21,30 +23,42 @@ fun CoroutineScope.jobRunner(
   results: JobResults,
   statuses: JobStatuses,
   logMessages: LogMessages,
-  dispatcher: CoroutineDispatcher,
   maxSimultaneousJobs: Int,
   minLogLevel: LogLevel,
 ) = launch {
-  val limitedDispatcher = dispatcher.limitedParallelism(maxSimultaneousJobs)
+  val mutex = Mutex()
+
+  val jobs = mutableMapOf<String, Job>()
 
   val log = NamedLog(name = "jobRunner", logMessages = logMessages, minLogLevel = minLogLevel)
 
   while (isActive) {
-    val job = queue.pop()
+    val ketlJob = queue.pop()
 
-    if (job == null) {
+    if (ketlJob == null) {
       log.debug("No job was found in the queue.")
     } else {
-      log.debug("Starting ${job.name}...")
-      val jobLog = NamedLog(name = job.name, logMessages = logMessages, minLogLevel = minLogLevel)
+      log.debug("Starting ${ketlJob.name}...")
 
-      launch(limitedDispatcher) {
-        runJob(
-          results = results,
-          statuses = statuses,
-          job = job,
-          log = jobLog,
-        )
+      val jobLog = NamedLog(name = ketlJob.name, logMessages = logMessages, minLogLevel = minLogLevel)
+
+      mutex.withLock {
+        val activeJobs = jobs.filter { it.value.isActive }.map { it.key }
+
+//        println("Jobs active status: ${jobs.map { "${it.key}: ${it.value.isActive}" }}")
+
+        if ((activeJobs.count() < maxSimultaneousJobs) && (ketlJob.name !in activeJobs)) {
+          val job = launch {
+            runJob(
+              results = results,
+              statuses = statuses,
+              job = ketlJob,
+              log = jobLog,
+            )
+          }
+
+          jobs[ketlJob.name] = job
+        }
       }
     }
   }
@@ -52,17 +66,19 @@ fun CoroutineScope.jobRunner(
 
 @DelicateCoroutinesApi
 @ExperimentalTime
-private fun runJob(
+private suspend fun runJob(
   results: JobResults,
   statuses: JobStatuses,
   log: Log,
   job: KETLJob,
-) = runBlocking {
+) {
   val start = LocalDateTime.now()
 
   try {
     withTimeout(timeout = job.timeout) {
       log.debug("Starting ${job.name}...")
+
+      ensureActive()
 
       statuses.add(JobStatus.Running(jobName = job.name, ts = start))
 
@@ -73,6 +89,8 @@ private fun runJob(
         retries = 0,
       )
       results.add(result)
+
+      ensureActive()
 
       when (result) {
         is JobResult.Cancelled -> {
@@ -114,6 +132,8 @@ private fun runJob(
           log.info("${result.jobName} was skipped.")
         }
       }
+
+      ensureActive()
 
       log.debug("Finished ${job.name}")
     }
