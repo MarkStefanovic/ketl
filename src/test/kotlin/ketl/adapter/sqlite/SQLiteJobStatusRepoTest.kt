@@ -2,6 +2,7 @@ package ketl.adapter.sqlite
 
 import ketl.domain.JobStatus
 import ketl.domain.LogLevel
+import ketl.domain.LogMessages
 import ketl.service.consoleLogger
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
@@ -55,7 +56,7 @@ class SQLiteJobStatusRepoTest {
   @Test
   fun add_happy_path() = runBlocking {
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = LogMessages().stream)
     }
 
     sqliteDatasource().let { ds ->
@@ -89,7 +90,7 @@ class SQLiteJobStatusRepoTest {
   @Test
   fun cancelRunningJobs_happy_path() = runBlocking {
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = LogMessages().stream)
     }
 
     sqliteDatasource().let { ds ->
@@ -131,7 +132,7 @@ class SQLiteJobStatusRepoTest {
   @Test
   fun deleteBefore_happy_path() = runBlocking {
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = LogMessages().stream)
     }
 
     sqliteDatasource().let { ds ->

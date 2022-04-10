@@ -1,11 +1,11 @@
-@file:Suppress("SqlResolve")
+@file:Suppress("SqlResolve", "DuplicatedCode")
 
 package ketl.adapter.pg
 
 import ketl.domain.DbJobResultsRepo
 import ketl.domain.JobResult
 import ketl.domain.KETLError
-import ketl.domain.Log
+import ketl.domain.SQLResult
 import java.sql.Connection
 import java.sql.Timestamp
 import java.sql.Types
@@ -15,33 +15,26 @@ import javax.sql.DataSource
 data class PgJobResultsRepo(
   val schema: String,
   private val ds: DataSource,
-  private val log: Log,
 ) : DbJobResultsRepo {
-  override suspend fun createTables() {
+  override fun createTables(): SQLResult =
     ds.connection.use { con ->
-      createJobResultSnapshotTable(con = con, schema = schema, log = log)
-
-      createJobResultTable(con = con, schema = schema, log = log)
+      createJobResultSnapshotTable(con = con, schema = schema) +
+        createJobResultTable(con = con, schema = schema)
     }
-  }
 
-  override suspend fun add(jobResult: JobResult) {
+  override fun add(jobResult: JobResult): SQLResult =
     ds.connection.use { con ->
-      addResultToJobResultSnapshotTable(con = con, schema = schema, jobResult = jobResult, log = log)
-
-      addResultToJobResultTable(con = con, schema = schema, jobResult = jobResult, log = log)
+      addResultToJobResultSnapshotTable(con = con, schema = schema, jobResult = jobResult) +
+        addResultToJobResultTable(con = con, schema = schema, jobResult = jobResult)
     }
-  }
 
-  override suspend fun deleteBefore(ts: LocalDateTime) {
+  override fun deleteBefore(ts: LocalDateTime): SQLResult =
     ds.connection.use { con ->
-      deleteResultsOnJobResultSnapshotTableBefore(con = con, schema = schema, ts = ts, log = log)
-
-      deleteResultsOnJobResultTableBefore(con = con, schema = schema, ts = ts, log = log)
+      deleteResultsOnJobResultSnapshotTableBefore(con = con, schema = schema, ts = ts) +
+        deleteResultsOnJobResultTableBefore(con = con, schema = schema, ts = ts)
     }
-  }
 
-  override suspend fun getLatestResults(): Set<JobResult> {
+  override fun getLatestResults(): Pair<SQLResult, Set<JobResult>> {
     // language=PostgreSQL
     val sql = """
       |SELECT
@@ -54,64 +47,68 @@ data class PgJobResultsRepo(
       |FROM $schema.job_result_snapshot AS jr
     """.trimMargin()
 
-    log.debug(sql)
+    return try {
+      ds.connection.use { connection ->
+        connection.createStatement().use { statement ->
+          statement.queryTimeout = 60
 
-    ds.connection.use { connection ->
-      connection.createStatement().use { statement ->
-        statement.queryTimeout = 60
+          val result = statement.executeQuery(sql)
 
-        val result = statement.executeQuery(sql)
+          val jobResults = mutableListOf<JobResult>()
+          while (result.next()) {
+            val jobName = result.getString("job_name")
+            val startTime = result.getTimestamp("start_time").toLocalDateTime()
+            val endTime = result.getTimestamp("end_time").toLocalDateTime()
+            val resultTypeName = result.getString("result")
+            val errorMessage = result.getObject("error_message") as String?
+            val skipReason = result.getObject("skip_reason") as String?
 
-        val jobResults = mutableListOf<JobResult>()
-        while (result.next()) {
-          val jobName = result.getString("job_name")
-          val startTime = result.getTimestamp("start_time").toLocalDateTime()
-          val endTime = result.getTimestamp("end_time").toLocalDateTime()
-          val resultTypeName = result.getString("result")
-          val errorMessage = result.getObject("error_message") as String?
-          val skipReason = result.getObject("skip_reason") as String?
+            val jobResult: JobResult = when (resultTypeName) {
+              "cancelled" -> JobResult.Cancelled(
+                jobName = jobName,
+                start = startTime,
+                end = endTime,
+              )
+              "failed" -> JobResult.Failed(
+                jobName = jobName,
+                start = startTime,
+                end = endTime,
+                errorMessage = errorMessage ?: "No message was provided.",
+              )
+              "skipped" -> JobResult.Skipped(
+                jobName = jobName,
+                start = startTime,
+                end = endTime,
+                reason = skipReason ?: "No reason was provided.",
+              )
+              "successful" -> JobResult.Successful(
+                jobName = jobName,
+                start = startTime,
+                end = endTime,
+              )
+              else -> throw KETLError.UnrecognizedResultTypeName(resultTypeName)
+            }
 
-          val jobResult: JobResult = when (resultTypeName) {
-            "cancelled" -> JobResult.Cancelled(
-              jobName = jobName,
-              start = startTime,
-              end = endTime,
-            )
-            "failed" -> JobResult.Failed(
-              jobName = jobName,
-              start = startTime,
-              end = endTime,
-              errorMessage = errorMessage ?: "No message was provided.",
-            )
-            "skipped" -> JobResult.Skipped(
-              jobName = jobName,
-              start = startTime,
-              end = endTime,
-              reason = skipReason ?: "No reason was provided.",
-            )
-            "successful" -> JobResult.Successful(
-              jobName = jobName,
-              start = startTime,
-              end = endTime,
-            )
-            else -> throw KETLError.UnrecognizedResultTypeName(resultTypeName)
+            jobResults.add(jobResult)
           }
 
-          jobResults.add(jobResult)
+          SQLResult.Success(
+            sql = sql,
+            parameters = null,
+          ) to jobResults.toSet()
         }
-
-        return jobResults.toSet()
       }
+    } catch (e: Exception) {
+      SQLResult.Error(sql = sql, parameters = null, error = e) to emptySet()
     }
   }
 }
 
-private suspend fun addResultToJobResultTable(
+private fun addResultToJobResultTable(
   con: Connection,
   schema: String,
   jobResult: JobResult,
-  log: Log,
-) {
+): SQLResult {
   // language=PostgreSQL
   val sql = """
     |INSERT INTO $schema.job_result (
@@ -131,55 +128,75 @@ private suspend fun addResultToJobResultTable(
     |)
   """.trimMargin()
 
-  log.debug(sql)
+  return try {
+    con.prepareStatement(sql).use { preparedStatement ->
+      preparedStatement.queryTimeout = 60
 
-  con.prepareStatement(sql).use { preparedStatement ->
-    preparedStatement.queryTimeout = 60
+      val resultName: String = when (jobResult) {
+        is JobResult.Cancelled -> "cancelled"
+        is JobResult.Failed -> "failed"
+        is JobResult.Skipped -> "skipped"
+        is JobResult.Successful -> "successful"
+      }
 
-    val resultName: String = when (jobResult) {
-      is JobResult.Cancelled -> "cancelled"
-      is JobResult.Failed -> "failed"
-      is JobResult.Skipped -> "skipped"
-      is JobResult.Successful -> "successful"
+      val errorMessage: String? = if (jobResult is JobResult.Failed) {
+        jobResult.errorMessage
+      } else {
+        null
+      }
+
+      val skipReason: String? = if (jobResult is JobResult.Skipped) {
+        jobResult.reason
+      } else {
+        null
+      }
+
+      preparedStatement.setString(1, jobResult.jobName)
+      preparedStatement.setTimestamp(2, Timestamp.valueOf(jobResult.start))
+      preparedStatement.setTimestamp(3, Timestamp.valueOf(jobResult.end))
+      preparedStatement.setString(4, resultName)
+      if (errorMessage == null) {
+        preparedStatement.setNull(5, Types.VARCHAR)
+      } else {
+        preparedStatement.setString(5, errorMessage)
+      }
+      if (skipReason == null) {
+        preparedStatement.setNull(6, Types.VARCHAR)
+      } else {
+        preparedStatement.setString(6, skipReason)
+      }
+
+      preparedStatement.executeUpdate()
+
+      SQLResult.Success(
+        sql = sql,
+        parameters = mapOf(
+          "job_name" to jobResult.jobName,
+          "start_time" to jobResult.start,
+          "end_time" to jobResult.end,
+          "result" to resultName,
+          "error_message" to errorMessage,
+          "skip_reason" to skipReason,
+        ),
+      )
     }
-
-    val errorMessage: String? = if (jobResult is JobResult.Failed) {
-      jobResult.errorMessage
-    } else {
-      null
-    }
-
-    val skipReason: String? = if (jobResult is JobResult.Skipped) {
-      jobResult.reason
-    } else {
-      null
-    }
-
-    preparedStatement.setString(1, jobResult.jobName)
-    preparedStatement.setTimestamp(2, Timestamp.valueOf(jobResult.start))
-    preparedStatement.setTimestamp(3, Timestamp.valueOf(jobResult.end))
-    preparedStatement.setString(4, resultName)
-    if (errorMessage == null) {
-      preparedStatement.setNull(5, Types.VARCHAR)
-    } else {
-      preparedStatement.setString(5, errorMessage)
-    }
-    if (skipReason == null) {
-      preparedStatement.setNull(6, Types.VARCHAR)
-    } else {
-      preparedStatement.setString(6, skipReason)
-    }
-
-    preparedStatement.executeUpdate()
+  } catch (e: Exception) {
+    SQLResult.Error(
+      sql = sql,
+      parameters = mapOf(
+        "schema" to schema,
+        "jobResult" to jobResult,
+      ),
+      error = e,
+    )
   }
 }
 
-private suspend fun addResultToJobResultSnapshotTable(
+private fun addResultToJobResultSnapshotTable(
   con: Connection,
   schema: String,
   jobResult: JobResult,
-  log: Log,
-) {
+): SQLResult {
   // language=PostgreSQL
   val sql = """
     |INSERT INTO $schema.job_result_snapshot (
@@ -221,163 +238,223 @@ private suspend fun addResultToJobResultSnapshotTable(
     |)
   """.trimMargin()
 
-  log.debug(sql)
+  return try {
+    con.prepareStatement(sql.trimIndent()).use { preparedStatement ->
+      preparedStatement.queryTimeout = 60
 
-  con.prepareStatement(sql.trimIndent()).use { preparedStatement ->
-    preparedStatement.queryTimeout = 60
+      val resultName: String = when (jobResult) {
+        is JobResult.Cancelled -> "cancelled"
+        is JobResult.Failed -> "failed"
+        is JobResult.Skipped -> "skipped"
+        is JobResult.Successful -> "successful"
+      }
 
-    val resultName: String = when (jobResult) {
-      is JobResult.Cancelled -> "cancelled"
-      is JobResult.Failed -> "failed"
-      is JobResult.Skipped -> "skipped"
-      is JobResult.Successful -> "successful"
+      val errorMessage: String? = if (jobResult is JobResult.Failed) {
+        jobResult.errorMessage
+      } else {
+        null
+      }
+
+      val skipReason: String? = if (jobResult is JobResult.Skipped) {
+        jobResult.reason
+      } else {
+        null
+      }
+
+      preparedStatement.setString(1, jobResult.jobName)
+      preparedStatement.setTimestamp(2, Timestamp.valueOf(jobResult.start))
+      preparedStatement.setTimestamp(3, Timestamp.valueOf(jobResult.end))
+      preparedStatement.setString(4, resultName)
+      if (errorMessage == null) {
+        preparedStatement.setNull(5, Types.VARCHAR)
+      } else {
+        preparedStatement.setString(5, errorMessage)
+      }
+      if (skipReason == null) {
+        preparedStatement.setNull(6, Types.VARCHAR)
+      } else {
+        preparedStatement.setString(6, skipReason)
+      }
+
+      preparedStatement.executeUpdate()
+
+      SQLResult.Success(
+        sql = sql,
+        parameters = mapOf(
+          "job_name" to jobResult.jobName,
+          "start_time" to jobResult.start,
+          "end_time" to jobResult.end,
+          "result" to resultName,
+          "error_message" to errorMessage,
+          "skip_reason" to skipReason,
+        ),
+      )
     }
-
-    val errorMessage: String? = if (jobResult is JobResult.Failed) {
-      jobResult.errorMessage
-    } else {
-      null
-    }
-
-    val skipReason: String? = if (jobResult is JobResult.Skipped) {
-      jobResult.reason
-    } else {
-      null
-    }
-
-    preparedStatement.setString(1, jobResult.jobName)
-    preparedStatement.setTimestamp(2, Timestamp.valueOf(jobResult.start))
-    preparedStatement.setTimestamp(3, Timestamp.valueOf(jobResult.end))
-    preparedStatement.setString(4, resultName)
-    if (errorMessage == null) {
-      preparedStatement.setNull(5, Types.VARCHAR)
-    } else {
-      preparedStatement.setString(5, errorMessage)
-    }
-    if (skipReason == null) {
-      preparedStatement.setNull(6, Types.VARCHAR)
-    } else {
-      preparedStatement.setString(6, skipReason)
-    }
-
-    preparedStatement.executeUpdate()
+  } catch (e: Exception) {
+    SQLResult.Error(
+      sql = sql,
+      parameters = mapOf(
+        "schema" to schema,
+        "jobResult" to jobResult,
+      ),
+      error = e,
+    )
   }
 }
 
-private suspend fun createJobResultTable(
+private fun createJobResultTable(
   con: Connection,
   schema: String,
-  log: Log,
-) =
-  con.createStatement().use { statement ->
-    statement.queryTimeout = 60
+): SQLResult {
+  // language=PostgreSQL
+  val createTableSQL = """
+    |CREATE TABLE IF NOT EXISTS $schema.job_result (
+    |  id SERIAL PRIMARY KEY
+    |, job_name TEXT NOT NULL CHECK (LENGTH(job_name) > 0)
+    |, start_time TIMESTAMP NOT NULL
+    |, end_time TIMESTAMP NOT NULL CHECK (end_time >= start_time)
+    |, result TEXT NOT NULL CHECK (
+    |    result IN ('cancelled', 'failed', 'skipped', 'successful')
+    |  )
+    |, error_message TEXT NULL CHECK (
+    |    (result = 'failed' AND LENGTH(error_message) > 0)
+    |    OR (result <> 'failed' AND error_message IS NULL)
+    |  )
+    |, skip_reason TEXT NULL CHECK (
+    |    (result = 'skipped' AND LENGTH(skip_reason) > 0)
+    |    OR (result <> 'skipped' AND skip_reason IS NULL)
+    |  )
+    |)
+  """.trimMargin()
 
-    // language=PostgreSQL
-    val createTableSQL = """
-      |CREATE TABLE IF NOT EXISTS $schema.job_result (
-      |  id SERIAL PRIMARY KEY
-      |, job_name TEXT NOT NULL CHECK (LENGTH(job_name) > 0)
-      |, start_time TIMESTAMP NOT NULL
-      |, end_time TIMESTAMP NOT NULL CHECK (end_time >= start_time)
-      |, result TEXT NOT NULL CHECK (
-      |    result IN ('cancelled', 'failed', 'skipped', 'successful')
-      |  )
-      |, error_message TEXT NULL CHECK (
-      |    (result = 'failed' AND LENGTH(error_message) > 0)
-      |    OR (result <> 'failed' AND error_message IS NULL)
-      |  )
-      |, skip_reason TEXT NULL CHECK (
-      |    (result = 'skipped' AND LENGTH(skip_reason) > 0)
-      |    OR (result <> 'skipped' AND skip_reason IS NULL)
-      |  )
-      |)
-    """.trimMargin()
+  // language=PostgreSQL
+  val startTimeIndexSQL = """
+    |-- noinspection SqlResolve @ table/"job_result"
+    |CREATE INDEX IF NOT EXISTS ix_job_result_job_name_start_time 
+    |  ON $schema.job_result (job_name, start_time)
+  """.trimMargin()
 
-    log.debug(createTableSQL)
+  val fullSQL = "$createTableSQL;\n$startTimeIndexSQL"
 
-    statement.execute(createTableSQL.trimIndent())
+  return try {
+    con.createStatement().use { statement ->
+      statement.queryTimeout = 60
 
-    // language=PostgreSQL
-    val startTimeIndexSQL = """
-      |-- noinspection SqlResolve @ table/"job_result"
-      |CREATE INDEX IF NOT EXISTS ix_job_result_job_name_start_time 
-      |  ON $schema.job_result (job_name, start_time)
-    """.trimMargin()
+      statement.execute(createTableSQL.trimIndent())
 
-    log.debug(startTimeIndexSQL)
-
-    statement.execute(startTimeIndexSQL.trimIndent())
+      statement.execute(startTimeIndexSQL.trimIndent())
+    }
+    SQLResult.Success(sql = fullSQL, parameters = mapOf("schema" to schema))
+  } catch (e: Exception) {
+    SQLResult.Error(sql = fullSQL, parameters = mapOf("schema" to schema), error = e)
   }
+}
 
-private suspend fun createJobResultSnapshotTable(
+private fun createJobResultSnapshotTable(
   con: Connection,
   schema: String,
-  log: Log,
-) =
-  con.createStatement().use { statement ->
-    statement.queryTimeout = 60
+): SQLResult {
+  // language=PostgreSQL
+  val sql = """
+    |CREATE TABLE IF NOT EXISTS $schema.job_result_snapshot (
+    |  job_name TEXT NOT NULL CHECK (LENGTH(job_name) > 0)
+    |, start_time TIMESTAMP NOT NULL
+    |, end_time TIMESTAMP NOT NULL CHECK (end_time >= start_time)
+    |, result TEXT NOT NULL CHECK (
+    |    result IN ('cancelled', 'failed', 'skipped', 'successful')
+    |  )
+    |, error_message TEXT NULL CHECK (
+    |    (result = 'failed' AND LENGTH(error_message) > 0)
+    |    OR (result <> 'failed' AND error_message IS NULL)
+    |  )
+    |, skip_reason TEXT NULL CHECK (
+    |    (result = 'skipped' AND LENGTH(skip_reason) > 0)
+    |    OR (result <> 'skipped' AND skip_reason IS NULL)
+    |  )
+    |, PRIMARY KEY (job_name)
+    |)
+  """.trimMargin()
 
-    // language=PostgreSQL
-    val sql = """
-      |CREATE TABLE IF NOT EXISTS $schema.job_result_snapshot (
-      |  job_name TEXT NOT NULL CHECK (LENGTH(job_name) > 0)
-      |, start_time TIMESTAMP NOT NULL
-      |, end_time TIMESTAMP NOT NULL CHECK (end_time >= start_time)
-      |, result TEXT NOT NULL CHECK (
-      |    result IN ('cancelled', 'failed', 'skipped', 'successful')
-      |  )
-      |, error_message TEXT NULL CHECK (
-      |    (result = 'failed' AND LENGTH(error_message) > 0)
-      |    OR (result <> 'failed' AND error_message IS NULL)
-      |  )
-      |, skip_reason TEXT NULL CHECK (
-      |    (result = 'skipped' AND LENGTH(skip_reason) > 0)
-      |    OR (result <> 'skipped' AND skip_reason IS NULL)
-      |  )
-      |, PRIMARY KEY (job_name)
-      |)
-    """.trimMargin()
+  return try {
+    con.createStatement().use { statement ->
+      statement.queryTimeout = 60
 
-    log.debug(sql)
+      statement.execute(sql)
+    }
 
-    statement.execute(sql)
+    SQLResult.Success(sql = sql, parameters = mapOf("schema" to schema))
+  } catch (e: Exception) {
+    SQLResult.Error(sql = sql, parameters = mapOf("schema" to schema), error = e)
   }
+}
 
-private suspend fun deleteResultsOnJobResultTableBefore(
+private fun deleteResultsOnJobResultTableBefore(
   con: Connection,
   schema: String,
   ts: LocalDateTime,
-  log: Log,
-) {
+): SQLResult {
   // language=PostgreSQL
   val sql = "DELETE FROM $schema.job_result WHERE start_time < ?"
 
-  log.debug(sql)
+  return try {
+    con.prepareStatement(sql).use { preparedStatement ->
+      preparedStatement.queryTimeout = 60
 
-  con.prepareStatement(sql).use { preparedStatement ->
-    preparedStatement.queryTimeout = 60
+      preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
 
-    preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
+      preparedStatement.executeUpdate()
+    }
 
-    preparedStatement.executeUpdate()
+    SQLResult.Success(
+      sql = sql,
+      parameters = mapOf(
+        "schema" to schema,
+        "start_time" to ts,
+      ),
+    )
+  } catch (e: Exception) {
+    SQLResult.Error(
+      sql = sql,
+      parameters = mapOf(
+        "schema" to schema,
+        "start_time" to ts,
+      ),
+      error = e,
+    )
   }
 }
 
-private suspend fun deleteResultsOnJobResultSnapshotTableBefore(
+private fun deleteResultsOnJobResultSnapshotTableBefore(
   con: Connection,
   schema: String,
   ts: LocalDateTime,
-  log: Log,
-) {
+): SQLResult {
   // language=PostgreSQL
   val sql = "DELETE FROM $schema.job_result_snapshot WHERE start_time < ?"
 
-  log.debug(sql)
+  return try {
+    con.prepareStatement(sql).use { preparedStatement ->
+      preparedStatement.queryTimeout = 60
+      preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
 
-  con.prepareStatement(sql).use { preparedStatement ->
-    preparedStatement.queryTimeout = 60
-    preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
+      preparedStatement.executeUpdate()
+    }
 
-    preparedStatement.executeUpdate()
+    SQLResult.Success(
+      sql = sql,
+      parameters = mapOf(
+        "schema" to schema,
+        "ts" to ts,
+      ),
+    )
+  } catch (e: Exception) {
+    SQLResult.Error(
+      sql = sql,
+      parameters = mapOf(
+        "schema" to schema,
+        "ts" to ts,
+      ),
+      error = e,
+    )
   }
 }

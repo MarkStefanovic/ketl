@@ -57,6 +57,7 @@ class PgLogRepo(
     } catch (e: Exception) {
       SQLResult.Error(
         sql = "$createTableSQL;\n$createTsIndexSQL;\n$createLogNameIndexSQL;",
+        parameters = null,
         error = e,
       )
     }
@@ -104,6 +105,7 @@ class PgLogRepo(
     } catch (e: Exception) {
       SQLResult.Error(
         sql = sql,
+        parameters = mapOf("message" to message),
         error = e,
       )
     }
@@ -134,6 +136,7 @@ class PgLogRepo(
     } catch (e: Exception) {
       SQLResult.Error(
         sql = sql,
+        parameters = mapOf("ts" to Timestamp.valueOf(ts)),
         error = e,
       )
     }

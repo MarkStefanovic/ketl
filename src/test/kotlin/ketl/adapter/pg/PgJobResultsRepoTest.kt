@@ -1,3 +1,5 @@
+@file:Suppress("SqlResolve")
+
 package ketl.adapter.pg
 
 import ketl.domain.JobResult
@@ -14,8 +16,9 @@ class PgJobResultsRepoTest {
 
     ds.connection.use { connection ->
       connection.createStatement().use { statement ->
+        //language=PostgreSQL
         statement.execute("DROP TABLE IF EXISTS ketl.job_result")
-
+        //language=PostgreSQL
         statement.execute("DROP TABLE IF EXISTS ketl.job_result_snapshot")
       }
 
@@ -38,19 +41,19 @@ class PgJobResultsRepoTest {
 
         repo.add(jobResult)
 
-        val results = repo.getLatestResults()
+        val (_, results) = repo.getLatestResults()
 
         assertEquals(expected = 1, actual = results.count())
 
         repo.add(jobResult2)
 
-        val resultsAfterSecondAdd = repo.getLatestResults()
+        val (_, resultsAfterSecondAdd) = repo.getLatestResults()
 
         assertEquals(expected = 2, actual = resultsAfterSecondAdd.count())
 
         repo.deleteBefore(LocalDateTime.of(2011, 1, 1, 1, 1, 1))
 
-        val resultsAfterDelete = repo.getLatestResults()
+        val (_, resultsAfterDelete) = repo.getLatestResults()
 
         assertEquals(expected = 1, actual = resultsAfterDelete.count())
       }

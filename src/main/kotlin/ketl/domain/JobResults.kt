@@ -20,7 +20,7 @@ interface JobResults {
 
 class DefaultJobResults : JobResults {
   private val _stream = MutableSharedFlow<JobResult>(
-    extraBufferCapacity = 100,
+    extraBufferCapacity = 20,
     onBufferOverflow = BufferOverflow.DROP_OLDEST,
   )
   override val stream = _stream.asSharedFlow()

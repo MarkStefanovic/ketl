@@ -2,6 +2,7 @@ package ketl.adapter.pg
 
 import ketl.domain.JobStatus
 import ketl.domain.LogLevel
+import ketl.domain.LogMessages
 import ketl.service.consoleLogger
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
@@ -72,7 +73,7 @@ class PgJobStatusRepoTest {
   @Test
   fun add_happy_path() = runBlocking {
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = LogMessages().stream)
     }
 
     pgDataSource().let { ds ->
@@ -101,7 +102,7 @@ class PgJobStatusRepoTest {
   @Test
   fun cancelRunningJobs_happy_path() = runBlocking {
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = LogMessages().stream)
     }
 
     pgDataSource().let { ds ->
@@ -137,7 +138,7 @@ class PgJobStatusRepoTest {
   @Test
   fun deleteBefore_happy_path() = runBlocking {
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = LogMessages().stream)
     }
 
     pgDataSource().let { ds ->
