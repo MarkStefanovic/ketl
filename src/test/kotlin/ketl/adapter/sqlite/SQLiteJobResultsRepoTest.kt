@@ -5,7 +5,6 @@ package ketl.adapter.sqlite
 import ketl.domain.JobResult
 import ketl.domain.LogLevel
 import ketl.domain.LogMessages
-import ketl.domain.NamedLog
 import ketl.service.consoleLogger
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
@@ -26,16 +25,8 @@ class SQLiteJobResultsRepoTest {
   fun round_trip_test() {
     val ds = testDataSource()
 
-    val logMessages = LogMessages()
-
-    val log = NamedLog(
-      name = "test_log",
-      minLogLevel = LogLevel.Info,
-      logMessages = logMessages,
-    )
-
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = logMessages.stream)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = LogMessages().stream)
     }
 
     ds.connection.use { connection ->
@@ -46,7 +37,7 @@ class SQLiteJobResultsRepoTest {
         statement.execute("DROP TABLE IF EXISTS ketl_job_result_snapshot")
       }
 
-      val repo = SQLiteJobResultsRepo(ds = ds, log = log)
+      val repo = SQLiteJobResultsRepo(ds = ds)
 
       val jobResult = JobResult.Successful(
         jobName = "test_job",

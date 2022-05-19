@@ -1,3 +1,5 @@
+@file:Suppress("SqlResolve", "SqlNoDataSourceInspection")
+
 package ketl.adapter.pg
 
 import ketl.domain.LogLevel
@@ -10,6 +12,7 @@ import javax.sql.DataSource
 import kotlin.test.assertEquals
 
 private fun getLogMessages(ds: DataSource): List<LogMessage> {
+  //language=PostgreSQL
   val sql = """
     |SELECT log_name, log_level, message, ts
     |FROM ketl.log
@@ -52,6 +55,7 @@ class PgLogRepoTest {
 
     ds.connection.use { connection ->
       connection.createStatement().use { statement ->
+        //language=PostgreSQL
         statement.executeUpdate("DROP TABLE IF EXISTS ketl.log")
       }
 
@@ -80,6 +84,7 @@ class PgLogRepoTest {
 
     ds.connection.use { connection ->
       connection.createStatement().use { statement ->
+        //language=PostgreSQL
         statement.executeUpdate("DROP TABLE IF EXISTS ketl.log")
       }
 

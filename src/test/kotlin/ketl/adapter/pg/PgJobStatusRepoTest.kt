@@ -5,7 +5,6 @@ package ketl.adapter.pg
 import ketl.domain.JobStatus
 import ketl.domain.LogLevel
 import ketl.domain.LogMessages
-import ketl.domain.NamedLog
 import ketl.service.consoleLogger
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
@@ -22,7 +21,6 @@ import kotlin.test.assertTrue
 private fun getJobStatuses(ds: DataSource, tableName: String): Set<JobStatus> {
   //language=PostgreSQL
   val sql = """
-    |-- noinspection SqlResolve @ any/"ketl"
     |SELECT
     |  job_name
     |, status
@@ -65,20 +63,12 @@ private fun deleteTables(con: Connection) {
 class PgJobStatusRepoTest {
   @Test
   fun add_happy_path() = runBlocking {
-    val logMessages = LogMessages()
-
-    val log = NamedLog(
-      name = "test_log",
-      minLogLevel = LogLevel.Info,
-      logMessages = logMessages,
-    )
-
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = logMessages.stream)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = LogMessages().stream)
     }
 
     pgDataSource().let { ds ->
-      val repo = PgJobStatusRepo(ds = ds, schema = "ketl", log = log)
+      val repo = PgJobStatusRepo(ds = ds, schema = "ketl")
 
       ds.connection.use { connection ->
         deleteTables(connection)
@@ -105,20 +95,12 @@ class PgJobStatusRepoTest {
 
   @Test
   fun cancelRunningJobs_happy_path() = runBlocking {
-    val logMessages = LogMessages()
-
-    val log = NamedLog(
-      name = "test_log",
-      minLogLevel = LogLevel.Info,
-      logMessages = logMessages,
-    )
-
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = logMessages.stream)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = LogMessages().stream)
     }
 
     pgDataSource().let { ds ->
-      val repo = PgJobStatusRepo(ds = ds, schema = "ketl", log = log)
+      val repo = PgJobStatusRepo(ds = ds, schema = "ketl")
 
       ds.connection.use { connection ->
         deleteTables(connection)
@@ -159,20 +141,12 @@ class PgJobStatusRepoTest {
 
   @Test
   fun deleteBefore_happy_path() = runBlocking {
-    val logMessages = LogMessages()
-
-    val log = NamedLog(
-      name = "test_log",
-      minLogLevel = LogLevel.Info,
-      logMessages = logMessages,
-    )
-
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = logMessages.stream)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = LogMessages().stream)
     }
 
     pgDataSource().let { ds ->
-      val repo = PgJobStatusRepo(ds = ds, schema = "ketl", log = log)
+      val repo = PgJobStatusRepo(ds = ds, schema = "ketl")
 
       ds.connection.use { connection ->
         deleteTables(connection)

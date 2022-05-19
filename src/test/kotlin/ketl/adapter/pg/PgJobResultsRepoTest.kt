@@ -5,7 +5,6 @@ package ketl.adapter.pg
 import ketl.domain.JobResult
 import ketl.domain.LogLevel
 import ketl.domain.LogMessages
-import ketl.domain.NamedLog
 import ketl.service.consoleLogger
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
@@ -31,19 +30,11 @@ class PgJobResultsRepoTest {
         statement.execute("DROP TABLE IF EXISTS ketl.job_result_snapshot")
       }
 
-      val logMessages = LogMessages()
-
-      val log = NamedLog(
-        name = "test_log",
-        minLogLevel = LogLevel.Info,
-        logMessages = logMessages,
-      )
-
       GlobalScope.launch {
-        consoleLogger(minLogLevel = LogLevel.Debug, logMessages = logMessages.stream)
+        consoleLogger(minLogLevel = LogLevel.Debug, logMessages = LogMessages().stream)
       }
 
-      val repo = PgJobResultsRepo(schema = "ketl", ds = ds, log = log)
+      val repo = PgJobResultsRepo(schema = "ketl", ds = ds)
 
       val jobResult = JobResult.Successful(
         jobName = "test_job",
@@ -62,19 +53,19 @@ class PgJobResultsRepoTest {
 
         repo.add(jobResult)
 
-        val results = repo.getLatestResults()
+        val (_, results) = repo.getLatestResults()
 
         assertEquals(expected = 1, actual = results.count())
 
         repo.add(jobResult2)
 
-        val resultsAfterSecondAdd = repo.getLatestResults()
+        val (_, resultsAfterSecondAdd) = repo.getLatestResults()
 
         assertEquals(expected = 2, actual = resultsAfterSecondAdd.count())
 
         repo.deleteBefore(LocalDateTime.of(2011, 1, 1, 1, 1, 1))
 
-        val resultsAfterDelete = repo.getLatestResults()
+        val (_, resultsAfterDelete) = repo.getLatestResults()
 
         assertEquals(expected = 1, actual = resultsAfterDelete.count())
       }

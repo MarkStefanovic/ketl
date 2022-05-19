@@ -1,4 +1,4 @@
-@file:Suppress("SqlDialectInspection")
+@file:Suppress("SqlResolve", "SqlDialectInspection", "SqlNoDataSourceInspection")
 
 package ketl.adapter.sqlite
 
@@ -16,6 +16,7 @@ private fun testDataSource() = SQLiteDataSource().apply {
 }
 
 private fun getLogMessages(con: Connection): List<LogMessage> {
+  //language=SQLite
   val sql = """
     |SELECT log_name, log_level, message, ts
     |FROM ketl_log

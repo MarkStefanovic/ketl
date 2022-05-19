@@ -1,4 +1,4 @@
-@file:Suppress("SqlResolve", "DuplicatedCode")
+@file:Suppress("SqlResolve", "DuplicatedCode", "SqlNoDataSourceInspection")
 
 package ketl.adapter.pg
 

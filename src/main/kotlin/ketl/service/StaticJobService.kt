@@ -14,7 +14,7 @@ class StaticJobService(private val jobs: Set<KETLJob>) : JobService {
     }
   }
 
-  override fun getActiveJobs() = jobs
+  override fun getActiveJobs() = jobs.shuffled().toSet()
 
   override fun getJob(jobName: String): KETLJob? = jobs.firstOrNull { it.name == jobName }
 }

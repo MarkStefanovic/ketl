@@ -5,7 +5,6 @@ package ketl.adapter.sqlite
 import ketl.domain.JobStatus
 import ketl.domain.LogLevel
 import ketl.domain.LogMessages
-import ketl.domain.NamedLog
 import ketl.service.consoleLogger
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
@@ -58,16 +57,8 @@ private fun getJobStatusHistoricalEntries(ds: DataSource): Set<JobStatus> =
 class SQLiteJobStatusRepoTest {
   @Test
   fun add_happy_path() = runBlocking {
-    val logMessages = LogMessages()
-
-    val log = NamedLog(
-      name = "test_log",
-      minLogLevel = LogLevel.Info,
-      logMessages = logMessages,
-    )
-
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = logMessages.stream)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = LogMessages().stream)
     }
 
     sqliteDatasource().let { ds ->
@@ -79,7 +70,7 @@ class SQLiteJobStatusRepoTest {
           statement.executeUpdate("DROP TABLE IF EXISTS ketl_job_status_snapshot")
         }
 
-        val repo = SQLiteJobStatusRepo(ds = ds, log = log)
+        val repo = SQLiteJobStatusRepo(ds = ds)
 
         repo.createTables()
 
@@ -100,16 +91,8 @@ class SQLiteJobStatusRepoTest {
 
   @Test
   fun cancelRunningJobs_happy_path() = runBlocking {
-    val logMessages = LogMessages()
-
-    val log = NamedLog(
-      name = "test_log",
-      minLogLevel = LogLevel.Info,
-      logMessages = logMessages,
-    )
-
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = logMessages.stream)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = LogMessages().stream)
     }
 
     sqliteDatasource().let { ds ->
@@ -121,7 +104,7 @@ class SQLiteJobStatusRepoTest {
           statement.executeUpdate("DROP TABLE IF EXISTS ketl_job_status_snapshot")
         }
 
-        val repo = SQLiteJobStatusRepo(ds = ds, log = log)
+        val repo = SQLiteJobStatusRepo(ds = ds)
 
         repo.createTables()
 
@@ -160,16 +143,8 @@ class SQLiteJobStatusRepoTest {
 
   @Test
   fun deleteBefore_happy_path() = runBlocking {
-    val logMessages = LogMessages()
-
-    val log = NamedLog(
-      name = "test_log",
-      minLogLevel = LogLevel.Info,
-      logMessages = logMessages,
-    )
-
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = logMessages.stream)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = LogMessages().stream)
     }
 
     sqliteDatasource().let { ds ->
@@ -181,7 +156,7 @@ class SQLiteJobStatusRepoTest {
           statement.executeUpdate("DROP TABLE IF EXISTS ketl_job_status_snapshot")
         }
 
-        val repo = SQLiteJobStatusRepo(ds = ds, log = log)
+        val repo = SQLiteJobStatusRepo(ds = ds)
 
         repo.createTables()
 
