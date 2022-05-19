@@ -15,6 +15,7 @@ sealed class KETLError(errorMessage: String) : Exception(errorMessage) {
 
   data class UnrecognizedStatusName(val statusName: String) : KETLError(
     "The status name, $statusName, is not recognized.  " +
-      "Recognized status names include the following:  'cancelled', 'initial', 'running', 'skipped', 'successful', 'failed'."
+      "Recognized status names include the following:  'cancelled', 'initial', 'running', 'skipped', " +
+      "'successful', 'failed'."
   )
 }

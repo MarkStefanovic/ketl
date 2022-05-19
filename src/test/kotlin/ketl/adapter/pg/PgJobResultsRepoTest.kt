@@ -1,12 +1,22 @@
+@file:Suppress("SqlResolve", "SqlNoDataSourceInspection")
+
 package ketl.adapter.pg
 
 import ketl.domain.JobResult
+import ketl.domain.LogLevel
+import ketl.domain.LogMessages
+import ketl.domain.NamedLog
+import ketl.service.consoleLogger
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import testutil.pgDataSource
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
 
+@DelicateCoroutinesApi
 class PgJobResultsRepoTest {
   @Test
   fun round_trip_test() {
@@ -14,12 +24,26 @@ class PgJobResultsRepoTest {
 
     ds.connection.use { connection ->
       connection.createStatement().use { statement ->
+        // language=PostgreSQL
         statement.execute("DROP TABLE IF EXISTS ketl.job_result")
 
+        // language=PostgreSQL
         statement.execute("DROP TABLE IF EXISTS ketl.job_result_snapshot")
       }
 
-      val repo = PgJobResultsRepo(schema = "ketl", ds = ds)
+      val logMessages = LogMessages()
+
+      val log = NamedLog(
+        name = "test_log",
+        minLogLevel = LogLevel.Info,
+        logMessages = logMessages,
+      )
+
+      GlobalScope.launch {
+        consoleLogger(minLogLevel = LogLevel.Debug, logMessages = logMessages.stream)
+      }
+
+      val repo = PgJobResultsRepo(schema = "ketl", ds = ds, log = log)
 
       val jobResult = JobResult.Successful(
         jobName = "test_job",

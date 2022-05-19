@@ -1,7 +1,11 @@
+@file:Suppress("SqlResolve", "SqlNoDataSourceInspection")
+
 package ketl.adapter.pg
 
 import ketl.domain.JobStatus
 import ketl.domain.LogLevel
+import ketl.domain.LogMessages
+import ketl.domain.NamedLog
 import ketl.service.consoleLogger
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
@@ -51,19 +55,9 @@ private fun getJobStatusHistoricalEntries(ds: DataSource): Set<JobStatus> =
 private fun deleteTables(con: Connection) {
   con.createStatement().use { statement ->
     //language=PostgreSQL
-    statement.executeUpdate(
-      """
-            -- noinspection SqlResolve @ any/"ketl"
-            DROP TABLE IF EXISTS ketl.job_status
-      """.trimIndent()
-    )
+    statement.executeUpdate("DROP TABLE IF EXISTS ketl.job_status")
     //language=PostgreSQL
-    statement.executeUpdate(
-      """
-            -- noinspection SqlResolve @ any/"ketl"
-            DROP TABLE IF EXISTS ketl.job_status_snapshot
-      """.trimIndent()
-    )
+    statement.executeUpdate("DROP TABLE IF EXISTS ketl.job_status_snapshot")
   }
 }
 
@@ -71,19 +65,30 @@ private fun deleteTables(con: Connection) {
 class PgJobStatusRepoTest {
   @Test
   fun add_happy_path() = runBlocking {
+    val logMessages = LogMessages()
+
+    val log = NamedLog(
+      name = "test_log",
+      minLogLevel = LogLevel.Info,
+      logMessages = logMessages,
+    )
+
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = logMessages.stream)
     }
 
     pgDataSource().let { ds ->
-      val repo = PgJobStatusRepo(ds = ds, schema = "ketl")
+      val repo = PgJobStatusRepo(ds = ds, schema = "ketl", log = log)
 
       ds.connection.use { connection ->
         deleteTables(connection)
 
         repo.createTables()
 
-        val jobStatus = JobStatus.Success(jobName = "test_job", ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5))
+        val jobStatus = JobStatus.Success(
+          jobName = "test_job",
+          ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5),
+        )
 
         repo.add(jobStatus)
 
@@ -100,20 +105,38 @@ class PgJobStatusRepoTest {
 
   @Test
   fun cancelRunningJobs_happy_path() = runBlocking {
+    val logMessages = LogMessages()
+
+    val log = NamedLog(
+      name = "test_log",
+      minLogLevel = LogLevel.Info,
+      logMessages = logMessages,
+    )
+
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = logMessages.stream)
     }
 
     pgDataSource().let { ds ->
-      val repo = PgJobStatusRepo(ds = ds, schema = "ketl")
+      val repo = PgJobStatusRepo(ds = ds, schema = "ketl", log = log)
 
       ds.connection.use { connection ->
         deleteTables(connection)
         repo.createTables()
 
-        val jobStatus1 = JobStatus.Success(jobName = "test_job_1", ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5))
-        val jobStatus2 = JobStatus.Running(jobName = "test_job_2", ts = LocalDateTime.of(2011, 1, 2, 3, 4, 5))
-        val jobStatus3 = JobStatus.Failed(jobName = "test_job_3", ts = LocalDateTime.of(2010, 2, 2, 3, 4, 5), errorMessage = "Whoops!")
+        val jobStatus1 = JobStatus.Success(
+          jobName = "test_job_1",
+          ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5),
+        )
+        val jobStatus2 = JobStatus.Running(
+          jobName = "test_job_2",
+          ts = LocalDateTime.of(2011, 1, 2, 3, 4, 5),
+        )
+        val jobStatus3 = JobStatus.Failed(
+          jobName = "test_job_3",
+          ts = LocalDateTime.of(2010, 2, 2, 3, 4, 5),
+          errorMessage = "Whoops!",
+        )
 
         repo.add(jobStatus1)
         repo.add(jobStatus2)
@@ -136,21 +159,38 @@ class PgJobStatusRepoTest {
 
   @Test
   fun deleteBefore_happy_path() = runBlocking {
+    val logMessages = LogMessages()
+
+    val log = NamedLog(
+      name = "test_log",
+      minLogLevel = LogLevel.Info,
+      logMessages = logMessages,
+    )
+
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = logMessages.stream)
     }
 
     pgDataSource().let { ds ->
-      val repo = PgJobStatusRepo(ds = ds, schema = "ketl")
+      val repo = PgJobStatusRepo(ds = ds, schema = "ketl", log = log)
 
       ds.connection.use { connection ->
         deleteTables(connection)
 
         repo.createTables()
 
-        val jobStatus1 = JobStatus.Success(jobName = "test_job_1", ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5))
-        val jobStatus2 = JobStatus.Success(jobName = "test_job_2", ts = LocalDateTime.of(2011, 1, 2, 3, 4, 5))
-        val jobStatus3 = JobStatus.Success(jobName = "test_job_3", ts = LocalDateTime.of(2010, 2, 2, 3, 4, 5))
+        val jobStatus1 = JobStatus.Success(
+          jobName = "test_job_1",
+          ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5),
+        )
+        val jobStatus2 = JobStatus.Success(
+          jobName = "test_job_2",
+          ts = LocalDateTime.of(2011, 1, 2, 3, 4, 5),
+        )
+        val jobStatus3 = JobStatus.Success(
+          jobName = "test_job_3",
+          ts = LocalDateTime.of(2010, 2, 2, 3, 4, 5),
+        )
 
         repo.add(jobStatus1)
         repo.add(jobStatus2)

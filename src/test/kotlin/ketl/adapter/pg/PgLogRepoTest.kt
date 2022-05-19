@@ -85,8 +85,18 @@ class PgLogRepoTest {
 
       repo.createTable()
 
-      val msg1 = LogMessage(loggerName = "test_log", level = LogLevel.Info, message = "test message", ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5))
-      val msg2 = LogMessage(loggerName = "test_log", level = LogLevel.Info, message = "test message", ts = LocalDateTime.of(2011, 1, 2, 3, 4, 5))
+      val msg1 = LogMessage(
+        loggerName = "test_log",
+        level = LogLevel.Info,
+        message = "test message",
+        ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5),
+      )
+      val msg2 = LogMessage(
+        loggerName = "test_log",
+        level = LogLevel.Info,
+        message = "test message",
+        ts = LocalDateTime.of(2011, 1, 2, 3, 4, 5),
+      )
 
       repo.add(msg1)
       repo.add(msg2)

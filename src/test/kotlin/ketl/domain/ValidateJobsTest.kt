@@ -103,7 +103,7 @@ class ValidateJobsTest {
       |  test_job_2:
       |    2 jobs are named test_job_2.
       |]
-    """.trimMargin(),
+      """.trimMargin(),
       actual = validationResult.toString(),
     )
   }

@@ -66,7 +66,8 @@ fun validateJobs(jobs: Set<KETLJob>): JobValidationResult {
 
     if (missingJobDeps.isNotEmpty()) {
       validationErrors[job.name]?.add(
-        "The following jobs are listed as dependencies, but they're not scheduled: ${missingJobDeps.joinToString(", ")}."
+        "The following jobs are listed as dependencies, but they're not scheduled: " +
+          missingJobDeps.joinToString(", ") + "."
       )
     }
   }

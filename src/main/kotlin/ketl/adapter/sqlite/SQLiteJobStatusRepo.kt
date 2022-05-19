@@ -270,7 +270,7 @@ private suspend fun deleteBeforeTsOnSnapshotTable(
       |-- noinspection SqlResolve @ table/"ketl_job_status_snapshot"
       |DELETE FROM ketl_job_status_snapshot
       |WHERE ts < ?
-    """.trimMargin()
+  """.trimMargin()
 
   log.debug(sql)
 

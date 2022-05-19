@@ -1,7 +1,11 @@
+@file:Suppress("SqlResolve", "SqlNoDataSourceInspection")
+
 package ketl.adapter.sqlite
 
 import ketl.domain.JobStatus
 import ketl.domain.LogLevel
+import ketl.domain.LogMessages
+import ketl.domain.NamedLog
 import ketl.service.consoleLogger
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
@@ -54,8 +58,16 @@ private fun getJobStatusHistoricalEntries(ds: DataSource): Set<JobStatus> =
 class SQLiteJobStatusRepoTest {
   @Test
   fun add_happy_path() = runBlocking {
+    val logMessages = LogMessages()
+
+    val log = NamedLog(
+      name = "test_log",
+      minLogLevel = LogLevel.Info,
+      logMessages = logMessages,
+    )
+
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = logMessages.stream)
     }
 
     sqliteDatasource().let { ds ->
@@ -67,7 +79,7 @@ class SQLiteJobStatusRepoTest {
           statement.executeUpdate("DROP TABLE IF EXISTS ketl_job_status_snapshot")
         }
 
-        val repo = SQLiteJobStatusRepo(ds = ds)
+        val repo = SQLiteJobStatusRepo(ds = ds, log = log)
 
         repo.createTables()
 
@@ -88,8 +100,16 @@ class SQLiteJobStatusRepoTest {
 
   @Test
   fun cancelRunningJobs_happy_path() = runBlocking {
+    val logMessages = LogMessages()
+
+    val log = NamedLog(
+      name = "test_log",
+      minLogLevel = LogLevel.Info,
+      logMessages = logMessages,
+    )
+
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = logMessages.stream)
     }
 
     sqliteDatasource().let { ds ->
@@ -101,13 +121,23 @@ class SQLiteJobStatusRepoTest {
           statement.executeUpdate("DROP TABLE IF EXISTS ketl_job_status_snapshot")
         }
 
-        val repo = SQLiteJobStatusRepo(ds = ds)
+        val repo = SQLiteJobStatusRepo(ds = ds, log = log)
 
         repo.createTables()
 
-        val jobStatus1 = JobStatus.Success(jobName = "test_job_1", ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5))
-        val jobStatus2 = JobStatus.Running(jobName = "test_job_2", ts = LocalDateTime.of(2011, 1, 2, 3, 4, 5))
-        val jobStatus3 = JobStatus.Failed(jobName = "test_job_3", ts = LocalDateTime.of(2010, 2, 2, 3, 4, 5), errorMessage = "Whoops!")
+        val jobStatus1 = JobStatus.Success(
+          jobName = "test_job_1",
+          ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5),
+        )
+        val jobStatus2 = JobStatus.Running(
+          jobName = "test_job_2",
+          ts = LocalDateTime.of(2011, 1, 2, 3, 4, 5),
+        )
+        val jobStatus3 = JobStatus.Failed(
+          jobName = "test_job_3",
+          ts = LocalDateTime.of(2010, 2, 2, 3, 4, 5),
+          errorMessage = "Whoops!",
+        )
 
         repo.add(jobStatus1)
         repo.add(jobStatus2)
@@ -130,8 +160,16 @@ class SQLiteJobStatusRepoTest {
 
   @Test
   fun deleteBefore_happy_path() = runBlocking {
+    val logMessages = LogMessages()
+
+    val log = NamedLog(
+      name = "test_log",
+      minLogLevel = LogLevel.Info,
+      logMessages = logMessages,
+    )
+
     GlobalScope.launch {
-      consoleLogger(minLogLevel = LogLevel.Debug)
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = logMessages.stream)
     }
 
     sqliteDatasource().let { ds ->
@@ -143,13 +181,22 @@ class SQLiteJobStatusRepoTest {
           statement.executeUpdate("DROP TABLE IF EXISTS ketl_job_status_snapshot")
         }
 
-        val repo = SQLiteJobStatusRepo(ds = ds)
+        val repo = SQLiteJobStatusRepo(ds = ds, log = log)
 
         repo.createTables()
 
-        val jobStatus1 = JobStatus.Success(jobName = "test_job_1", ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5))
-        val jobStatus2 = JobStatus.Success(jobName = "test_job_2", ts = LocalDateTime.of(2011, 1, 2, 3, 4, 5))
-        val jobStatus3 = JobStatus.Success(jobName = "test_job_3", ts = LocalDateTime.of(2010, 2, 2, 3, 4, 5))
+        val jobStatus1 = JobStatus.Success(
+          jobName = "test_job_1",
+          ts = LocalDateTime.of(2010, 1, 2, 3, 4, 5),
+        )
+        val jobStatus2 = JobStatus.Success(
+          jobName = "test_job_2",
+          ts = LocalDateTime.of(2011, 1, 2, 3, 4, 5),
+        )
+        val jobStatus3 = JobStatus.Success(
+          jobName = "test_job_3",
+          ts = LocalDateTime.of(2010, 2, 2, 3, 4, 5),
+        )
 
         repo.add(jobStatus1)
         repo.add(jobStatus2)

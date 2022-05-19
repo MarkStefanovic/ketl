@@ -1,6 +1,15 @@
+@file:Suppress("SqlResolve", "SqlNoDataSourceInspection")
+
 package ketl.adapter.sqlite
 
 import ketl.domain.JobResult
+import ketl.domain.LogLevel
+import ketl.domain.LogMessages
+import ketl.domain.NamedLog
+import ketl.service.consoleLogger
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.sqlite.SQLiteDataSource
@@ -11,19 +20,33 @@ private fun testDataSource() = SQLiteDataSource().apply {
   url = "jdbc:sqlite:file:test?mode=memory&cache=shared"
 }
 
+@DelicateCoroutinesApi
 class SQLiteJobResultsRepoTest {
   @Test
   fun round_trip_test() {
     val ds = testDataSource()
 
+    val logMessages = LogMessages()
+
+    val log = NamedLog(
+      name = "test_log",
+      minLogLevel = LogLevel.Info,
+      logMessages = logMessages,
+    )
+
+    GlobalScope.launch {
+      consoleLogger(minLogLevel = LogLevel.Debug, logMessages = logMessages.stream)
+    }
+
     ds.connection.use { connection ->
       connection.createStatement().use { statement ->
+        //language=SQLite
         statement.execute("DROP TABLE IF EXISTS ketl_job_result")
-
+        //language=SQLite
         statement.execute("DROP TABLE IF EXISTS ketl_job_result_snapshot")
       }
 
-      val repo = SQLiteJobResultsRepo(ds = ds)
+      val repo = SQLiteJobResultsRepo(ds = ds, log = log)
 
       val jobResult = JobResult.Successful(
         jobName = "test_job",
