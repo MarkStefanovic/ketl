@@ -3,7 +3,7 @@ package ketl.adapter.pg
 import ketl.domain.DbJobStatusRepo
 import ketl.domain.JobStatus
 import ketl.domain.KETLError
-import ketl.domain.Log
+import ketl.domain.SQLResult
 import java.sql.Connection
 import java.sql.ResultSet
 import java.sql.Timestamp
@@ -14,16 +14,14 @@ import javax.sql.DataSource
 class PgJobStatusRepo(
   val schema: String,
   private val ds: DataSource,
-  private val log: Log,
 ) : DbJobStatusRepo {
-  override suspend fun add(jobStatus: JobStatus) {
+  override fun add(jobStatus: JobStatus): SQLResult =
     ds.connection.use { connection ->
-      addToHistoricalTable(con = connection, schema = schema, jobStatus = jobStatus, log = log)
-      addToSnapshotTable(con = connection, schema = schema, jobStatus = jobStatus, log = log)
+      addToHistoricalTable(con = connection, schema = schema, jobStatus = jobStatus) +
+        addToSnapshotTable(con = connection, schema = schema, jobStatus = jobStatus)
     }
-  }
 
-  override suspend fun cancelRunningJobs() {
+  override fun cancelRunningJobs(): SQLResult {
     //language=PostgreSQL
     val sql = """
       |UPDATE $schema.job_status_snapshot
@@ -31,18 +29,21 @@ class PgJobStatusRepo(
       |WHERE status = 'running'
     """.trimMargin()
 
-    log.debug(sql)
+    return try {
+      ds.connection.use { connection ->
+        connection.createStatement().use { statement ->
+          statement.queryTimeout = 60
 
-    ds.connection.use { connection ->
-      connection.createStatement().use { statement ->
-        statement.queryTimeout = 60
-
-        statement.execute(sql)
+          statement.execute(sql)
+        }
       }
+      SQLResult.Success(sql = sql, parameters = null)
+    } catch (e: Exception) {
+      SQLResult.Error(sql = sql, parameters = null, error = e)
     }
   }
 
-  override suspend fun currentStatus(): Set<JobStatus> {
+  override fun currentStatus(): Pair<SQLResult, Set<JobStatus>> {
     //language=PostgreSQL
     val sql = """
       |SELECT
@@ -54,21 +55,25 @@ class PgJobStatusRepo(
       |FROM $schema.job_status_snapshot
     """.trimMargin()
 
-    val jobStatuses = mutableListOf<JobStatus>()
-    ds.connection.use { connection ->
-      connection.createStatement().use { statement ->
-        statement.queryTimeout = 60
+    return try {
+      val jobStatuses = mutableListOf<JobStatus>()
+      ds.connection.use { connection ->
+        connection.createStatement().use { statement ->
+          statement.queryTimeout = 60
 
-        statement.executeQuery(sql).use { resultSet ->
-          val jobStatus = getJobStatusFromResultSet(resultSet)
-          jobStatuses.add(jobStatus)
+          statement.executeQuery(sql).use { resultSet ->
+            val jobStatus = getJobStatusFromResultSet(resultSet)
+            jobStatuses.add(jobStatus)
+          }
         }
       }
+      SQLResult.Success(sql = sql, parameters = null) to jobStatuses.toSet()
+    } catch (e: Exception) {
+      SQLResult.Error(sql = sql, parameters = null, error = e) to emptySet()
     }
-    return jobStatuses.toSet()
   }
 
-  override suspend fun createTables() {
+  override fun createTables(): SQLResult {
     //language=PostgreSQL
     val createHistTableSQL = """
       |CREATE TABLE IF NOT EXISTS $schema.job_status (
@@ -88,8 +93,6 @@ class PgJobStatusRepo(
       |, ts TIMESTAMP NOT NULL
       |)
     """.trimMargin()
-
-    log.debug(createHistTableSQL)
 
     //language=PostgreSQL
     val createSnapshotTableSQL = """
@@ -111,40 +114,46 @@ class PgJobStatusRepo(
       |)
     """.trimMargin()
 
-    log.debug(createSnapshotTableSQL)
+    val fullSQL = "$createHistTableSQL\n$createSnapshotTableSQL"
 
-    ds.connection.use { connection ->
-      connection.createStatement().use { statement ->
-        statement.queryTimeout = 60
+    return try {
+      ds.connection.use { connection ->
+        connection.createStatement().use { statement ->
+          statement.queryTimeout = 60
 
-        statement.execute(createHistTableSQL)
-        statement.execute(createSnapshotTableSQL)
+          statement.execute(createHistTableSQL)
+          statement.execute(createSnapshotTableSQL)
+        }
       }
+      SQLResult.Success(sql = fullSQL, parameters = null)
+    } catch (e: Exception) {
+      SQLResult.Error(sql = fullSQL, parameters = null, error = e)
     }
   }
 
-  override suspend fun deleteBefore(ts: LocalDateTime) {
+  override fun deleteBefore(ts: LocalDateTime): SQLResult {
     //language=PostgreSQL
     val sql = """
       |DELETE FROM $schema.job_status
       |WHERE ts < ?
     """.trimMargin()
 
-    log.debug(sql)
-
-    ds.connection.use { connection ->
-      deleteBeforeTsOnHistoricalTable(log = log, con = connection, schema = schema, ts = ts)
-      deleteBeforeTsOnSnapshotTable(log = log, con = connection, schema = schema, ts = ts)
+    return try {
+      ds.connection.use { connection ->
+        deleteBeforeTsOnHistoricalTable(con = connection, schema = schema, ts = ts) +
+          deleteBeforeTsOnSnapshotTable(con = connection, schema = schema, ts = ts)
+      }
+    } catch (e: Exception) {
+      SQLResult.Error(sql = sql, parameters = mapOf("ts" to ts), error = e)
     }
   }
 }
 
-private suspend fun addToHistoricalTable(
+private fun addToHistoricalTable(
   con: Connection,
   schema: String,
   jobStatus: JobStatus,
-  log: Log,
-) {
+): SQLResult {
   //language=PostgreSQL
   val sql = """
     |INSERT INTO $schema.job_status (
@@ -162,35 +171,44 @@ private suspend fun addToHistoricalTable(
     |)  
   """.trimMargin()
 
-  log.debug(sql)
+  return try {
+    con.prepareStatement(sql).use { preparedStatement ->
+      preparedStatement.queryTimeout = 60
 
-  con.prepareStatement(sql).use { preparedStatement ->
-    preparedStatement.queryTimeout = 60
+      preparedStatement.setString(1, jobStatus.jobName)
+      preparedStatement.setString(2, jobStatus.statusName)
+      if (jobStatus is JobStatus.Failed) {
+        preparedStatement.setString(3, jobStatus.errorMessage)
+      } else {
+        preparedStatement.setNull(3, Types.VARCHAR)
+      }
+      if (jobStatus is JobStatus.Skipped) {
+        preparedStatement.setString(4, jobStatus.reason)
+      } else {
+        preparedStatement.setNull(4, Types.VARCHAR)
+      }
+      preparedStatement.setTimestamp(5, Timestamp.valueOf(jobStatus.ts))
 
-    preparedStatement.setString(1, jobStatus.jobName)
-    preparedStatement.setString(2, jobStatus.statusName)
-    if (jobStatus is JobStatus.Failed) {
-      preparedStatement.setString(3, jobStatus.errorMessage)
-    } else {
-      preparedStatement.setNull(3, Types.VARCHAR)
+      preparedStatement.execute()
     }
-    if (jobStatus is JobStatus.Skipped) {
-      preparedStatement.setString(4, jobStatus.reason)
-    } else {
-      preparedStatement.setNull(4, Types.VARCHAR)
-    }
-    preparedStatement.setTimestamp(5, Timestamp.valueOf(jobStatus.ts))
-
-    preparedStatement.execute()
+    SQLResult.Success(
+      sql = sql,
+      parameters = mapOf("schema" to schema, "jobStatus" to jobStatus),
+    )
+  } catch (e: Exception) {
+    SQLResult.Error(
+      sql = sql,
+      parameters = mapOf("schema" to schema, "jobStatus" to jobStatus),
+      error = e,
+    )
   }
 }
 
-private suspend fun addToSnapshotTable(
+private fun addToSnapshotTable(
   con: Connection,
   schema: String,
   jobStatus: JobStatus,
-  log: Log,
-) {
+): SQLResult {
   //language=PostgreSQL
   val sql = """
     |INSERT INTO $schema.job_status_snapshot (
@@ -226,72 +244,100 @@ private suspend fun addToSnapshotTable(
     |)
   """.trimMargin()
 
-  log.debug(sql)
+  return try {
+    con.prepareStatement(sql).use { preparedStatement ->
+      preparedStatement.queryTimeout = 60
 
-  con.prepareStatement(sql).use { preparedStatement ->
-    preparedStatement.queryTimeout = 60
+      preparedStatement.setString(1, jobStatus.jobName)
+      preparedStatement.setString(2, jobStatus.statusName)
+      if (jobStatus is JobStatus.Failed) {
+        preparedStatement.setString(3, jobStatus.errorMessage)
+      } else {
+        preparedStatement.setNull(3, Types.VARCHAR)
+      }
+      if (jobStatus is JobStatus.Skipped) {
+        preparedStatement.setString(4, jobStatus.reason)
+      } else {
+        preparedStatement.setNull(4, Types.VARCHAR)
+      }
+      preparedStatement.setTimestamp(5, Timestamp.valueOf(jobStatus.ts))
 
-    preparedStatement.setString(1, jobStatus.jobName)
-    preparedStatement.setString(2, jobStatus.statusName)
-    if (jobStatus is JobStatus.Failed) {
-      preparedStatement.setString(3, jobStatus.errorMessage)
-    } else {
-      preparedStatement.setNull(3, Types.VARCHAR)
+      preparedStatement.execute()
     }
-    if (jobStatus is JobStatus.Skipped) {
-      preparedStatement.setString(4, jobStatus.reason)
-    } else {
-      preparedStatement.setNull(4, Types.VARCHAR)
-    }
-    preparedStatement.setTimestamp(5, Timestamp.valueOf(jobStatus.ts))
-
-    preparedStatement.execute()
+    SQLResult.Success(
+      sql = sql,
+      parameters = mapOf("schema" to schema, "jobStatus" to jobStatus),
+    )
+  } catch (e: Exception) {
+    SQLResult.Error(
+      sql = sql,
+      parameters = mapOf("schema" to schema, "jobStatus" to jobStatus),
+      error = e,
+    )
   }
 }
 
-private suspend fun deleteBeforeTsOnHistoricalTable(
-  log: Log,
+private fun deleteBeforeTsOnHistoricalTable(
   con: Connection,
   schema: String,
   ts: LocalDateTime,
-) {
+): SQLResult {
   //language=PostgreSQL
   val sql = """
     |DELETE FROM $schema.job_status
     |WHERE ts < ?
   """.trimMargin()
 
-  log.debug(sql)
+  return try {
+    con.prepareStatement(sql).use { preparedStatement ->
+      preparedStatement.queryTimeout = 60
 
-  con.prepareStatement(sql).use { preparedStatement ->
-    preparedStatement.queryTimeout = 60
+      preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
 
-    preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
-
-    preparedStatement.execute()
+      preparedStatement.execute()
+    }
+    SQLResult.Success(
+      sql = sql,
+      parameters = mapOf("schema" to schema, "ts" to ts)
+    )
+  } catch (e: Exception) {
+    SQLResult.Error(
+      sql = sql,
+      parameters = mapOf("schema" to schema, "ts" to ts),
+      error = e,
+    )
   }
 }
 
-private suspend fun deleteBeforeTsOnSnapshotTable(
-  log: Log,
+private fun deleteBeforeTsOnSnapshotTable(
   con: Connection,
   schema: String,
   ts: LocalDateTime,
-) {
+): SQLResult {
   //language=PostgreSQL
   val sql = """
     |DELETE FROM $schema.job_status_snapshot
     |WHERE ts < ?
   """.trimMargin()
 
-  log.debug(sql)
+  return try {
+    con.prepareStatement(sql).use { preparedStatement ->
+      preparedStatement.queryTimeout = 60
 
-  con.prepareStatement(sql).use { preparedStatement ->
-    preparedStatement.queryTimeout = 60
+      preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
 
-    preparedStatement.setTimestamp(1, Timestamp.valueOf(ts))
-
-    preparedStatement.execute()
+      preparedStatement.execute()
+    }
+    SQLResult.Success(
+      sql = sql,
+      parameters = mapOf("schema" to schema, "ts" to ts)
+    )
+  } catch (e: Exception) {
+    SQLResult.Error(
+      sql = sql,
+      parameters = mapOf("schema" to schema, "ts" to ts),
+      error = e,
+    )
   }
 }
 

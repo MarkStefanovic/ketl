@@ -3,13 +3,13 @@ package ketl.domain
 import java.time.LocalDateTime
 
 interface DbJobStatusRepo {
-  suspend fun add(jobStatus: JobStatus)
+  fun add(jobStatus: JobStatus): SQLResult
 
-  suspend fun cancelRunningJobs()
+  fun cancelRunningJobs(): SQLResult
 
-  suspend fun createTables()
+  fun createTables(): SQLResult
 
-  suspend fun currentStatus(): Set<JobStatus>
+  fun currentStatus(): Pair<SQLResult, Set<JobStatus>>
 
-  suspend fun deleteBefore(ts: LocalDateTime)
+  fun deleteBefore(ts: LocalDateTime): SQLResult
 }

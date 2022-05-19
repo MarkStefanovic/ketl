@@ -44,7 +44,7 @@ class DefaultJobStatusState : JobStatusState {
 
 class DefaultJobStatuses : JobStatuses {
   private val _stream = MutableSharedFlow<JobStatus>(
-    extraBufferCapacity = 100,
+    extraBufferCapacity = 20,
     onBufferOverflow = BufferOverflow.DROP_OLDEST,
   )
 

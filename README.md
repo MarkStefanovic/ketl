@@ -1,19 +1,17 @@
 ```kotlin 
+import com.zaxxer.hikari.HikariDataSource
+import ketl.domain.DbDialect
 import ketl.domain.KETLJob
 import ketl.domain.Log
-import ketl.domain.LogLevel
 import ketl.domain.Schedule
 import ketl.domain.Status
 import ketl.domain.every
 import ketl.service.StaticJobService
-import ketl.service.consoleLogger
-import ketl.service.jobStatusLogger
 import ketl.start
 import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.InternalCoroutinesApi
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlin.random.Random
 import kotlin.time.Duration
@@ -51,7 +49,7 @@ val jobs: Set<KETLJob> =
       name = "job1",
       schedule = every(displayName = "job1 schedule", frequency = Duration.seconds(10)),
       timeout = Duration.seconds(60),
-      maxRetries = 0,
+      maxRetries = 1,
       dependencies = setOf(),
       sleep = Duration.seconds(5),
     ),
@@ -60,7 +58,7 @@ val jobs: Set<KETLJob> =
       schedule = every(displayName = "job2 schedule", frequency = Duration.seconds(7)),
       dependencies = setOf("job1"),
       timeout = Duration.seconds(60),
-      maxRetries = 0,
+      maxRetries = 1,
       sleep = Duration.seconds(10),
     ),
     DummyJob(
@@ -101,25 +99,17 @@ val jobs: Set<KETLJob> =
 @ExperimentalTime
 @InternalCoroutinesApi
 fun main(args: Array<String>) = runBlocking {
-  launch {
-    jobStatusLogger()
+  val ds = HikariDataSource().apply {
+    jdbcUrl = "jdbc:sqlite::memory:"
   }
-
-  launch {
-    consoleLogger(minLogLevel = LogLevel.Debug)
-  }
-
-//  launch {
-//    jobQueueLogger()
-//  }
-//
-//  launch {
-//    jobResultsLogger()
-//  }
 
   start(
     jobService = StaticJobService(jobs),
     maxSimultaneousJobs = 4,
-  ).cancelAndJoin()
+    logDs = ds,
+    logDialect = DbDialect.SQLite,
+    logJobMessagesToConsole = true,
+    logJobStatusChanges = true,
+  )
 }
 ```

@@ -51,7 +51,7 @@ class SQLiteLogRepo(private val ds: DataSource) : DbLogRepo {
 
       SQLResult.Success(sql = sql, parameters = null)
     } catch (e: Exception) {
-      SQLResult.Error(sql = sql, error = e)
+      SQLResult.Error(sql = sql, parameters = null, error = e)
     }
   }
 
@@ -95,7 +95,11 @@ class SQLiteLogRepo(private val ds: DataSource) : DbLogRepo {
         )
       }
     } catch (e: Exception) {
-      SQLResult.Error(sql = sql, error = e)
+      SQLResult.Error(
+        sql = sql,
+        parameters = mapOf("message" to message),
+        error = e,
+      )
     }
   }
 
@@ -119,7 +123,7 @@ class SQLiteLogRepo(private val ds: DataSource) : DbLogRepo {
 
       SQLResult.Success(sql = sql, parameters = mapOf("ts" to Timestamp.valueOf(ts)))
     } catch (e: Exception) {
-      SQLResult.Error(sql = sql, error = e)
+      SQLResult.Error(sql = sql, parameters = mapOf("ts" to Timestamp.valueOf(ts)), error = e)
     }
   }
 }
