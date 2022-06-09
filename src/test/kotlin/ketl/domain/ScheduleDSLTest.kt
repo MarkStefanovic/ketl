@@ -6,7 +6,7 @@ import java.time.DayOfWeek
 import java.time.LocalDateTime
 import java.time.Month
 import kotlin.test.assertEquals
-import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
@@ -16,7 +16,7 @@ class ScheduleDSLTest {
   fun everyday_onHoursBetween_happy_path() {
     val sched = daily("test schedule") {
       between(0, 12) {
-        every(Duration.minutes(5))
+        every(5.minutes)
       }
     }
     assertEquals(
@@ -24,7 +24,7 @@ class ScheduleDSLTest {
         displayName = "test schedule",
         parts = setOf(
           SchedulePart(
-            frequency = Duration.minutes(5),
+            frequency = 5.minutes,
             window = ExecutionWindow(
               startMonth = Month.JANUARY,
               endMonth = Month.DECEMBER,
@@ -52,10 +52,10 @@ class ScheduleDSLTest {
     val sched = weekly("test schedule") {
       between(DayOfWeek.MONDAY, DayOfWeek.SATURDAY) {
         between(0, 12) {
-          every(Duration.minutes(5))
+          every(5.minutes)
         }
         between(20, 23) {
-          every(Duration.minutes(10))
+          every(10.minutes)
         }
       }
     }
@@ -65,7 +65,7 @@ class ScheduleDSLTest {
         displayName = "test schedule",
         parts = setOf(
           SchedulePart(
-            frequency = Duration.minutes(5),
+            frequency = 5.minutes,
             window = ExecutionWindow(
               startMonth = Month.JANUARY,
               endMonth = Month.DECEMBER,
@@ -83,7 +83,7 @@ class ScheduleDSLTest {
             startDateTime = LocalDateTime.MIN,
           ),
           SchedulePart(
-            frequency = Duration.minutes(10),
+            frequency = 10.minutes,
             window = ExecutionWindow(
               startMonth = Month.JANUARY,
               endMonth = Month.DECEMBER,
